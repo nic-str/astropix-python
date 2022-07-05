@@ -143,9 +143,13 @@ class astropix2:
             self.bias_setup.update(bias_cfg)
         else: raise Exception("asic_init must first be called!")
 
-    # This functiion is how binary masks are applied to 
-    
-    
+    # This makes a new digital mask and rewrites the configuration to the asic 
+    def update_mask_digit(self, maskstr: str):
+        if self._asic_start:
+            self._make_digital_mask(maskstr)
+            self.asic_update()    
+        else: raise Exception("asic_init must first be called!")
+
     def enable_spi(self):
         self.nexys.spi_enable()
         self.nexys.spi_reset()
@@ -169,6 +173,9 @@ class astropix2:
         self.nexys.send_routing_cmd()
 
         print("SPI ENABLED")
+
+    def close_connection(self):
+        self.nexys.close()
 
 
 ################## Voltageboard Methods ############################
@@ -294,7 +301,8 @@ class astropix2:
                 'tot_msb': tot_msb,
                 'tot_lsb': tot_lsb,
                 'tot_total': tot_total,
-                'tot_ns': ((tot_total * self.sampleclock_period_ns)/1000.0)
+                'tot_ns': ((tot_total * self.sampleclock_period_ns)/1000.0),
+                'hit_bits': hit
                 }
             hit_list.append(hits)
         return hit_list
