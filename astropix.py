@@ -7,7 +7,6 @@ Author: Autumn Bauman
 # Needed modules. They all import their own suppourt libraries, 
 # and eventually there will be a list of which ones are needed to run
 from typing import Dict
-# from sqlalchemy import true
 from modules.spi import Spi 
 from modules.nexysio import Nexysio
 from modules.decode import Decode
@@ -15,6 +14,7 @@ from modules.injectionboard import Injectionboard
 from modules.voltageboard import Voltageboard
 from bitstring import BitArray
 from tqdm import tqdm
+import pandas as pd
 import regex as re
 import binascii
 import time
@@ -69,6 +69,14 @@ class astropix2:
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
     def __init__(self, clock_period_ns = 10, inject:bool = False):
+        """
+        Initalizes astropix object. 
+        No required arguments
+        Optional:
+        clock_period_ns:int - period of main clock in ns
+        inject:bool - if set to True will enable injection for the whole array.
+        """
+
         # _asic_start tracks if the inital configuration has been run on the ASIC yet.
         # By not handeling this in the init it simplifies the function, making it simpler
         # to put in custom configurations and allows for less writing to the chip,
@@ -79,11 +87,12 @@ class astropix2:
         self.handle = self.nexys.autoopen()
         self._wait_progress(2)
         # Ensure it is working
-        print("Opened FPGA, testing...")
+        logger.info("Opened FPGA, testing...")
         self._test_io()
-        print("Test successful.")
+        logger.info("FPGA test successful.")
         # Start putting the variables in for use down the line
         self.sampleclock_period_ns = clock_period_ns
+        self.inject = inject
         # Creates objects used later on
         self.decode = Decode(clock_period_ns)
         
@@ -93,6 +102,16 @@ class astropix2:
     # Method to initalize the asic. This is taking the place of asic.py. 
     # All of the interfacing is handeled through asic_update
     def asic_init(self, dac_setup: dict = None, bias_setup:dict = None, digital_mask:str = None):
+        """
+        self.asic_init() - initalize the asic configuration. Must be called first
+        Positional arguments: None
+        Optional:
+        dac_setup: dict - dictionairy of values passed to the configuration. Only needs values diffent from defaults
+        bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
+        digital_mask: str - String of 1s and 0s in 35x35 arangement which masks the array. Needed to enable pixels not (0,0)
+        """
+
+
         # Now that the asic has been initalized we can go and make this true
         self._asic_start = True
         # The use of update methods on the dictionairy allows for only the keys that 
@@ -111,46 +130,53 @@ class astropix2:
         self._make_digitalconfig()
         self._make_reconfig()
         # Loads it to the chip
-        print("LOADING TO ASIC...")
+        logger.info("LOADING TO ASIC...")
         self.asic_update()
-        print("ASIC SUCCESSFULLY CONFIGURED")
+        logger.info("ASIC SUCCESSFULLY CONFIGURED")
+
 
     # The method to write data to the asic. Called whenever somthing is changed
     # or after a group of changes are done. Taken straight from asic.py.
-    # Might need updating down the line but it shoudl still work
-
+    # Might need updating down the line but it should still work
     def asic_update(self):
-        """Update ASIC"""
+        """
+        Remakes configbits and writes to asic. 
+        Takes no input and does not return
+        """
 
-        # Not needed for v2
-        # dummybits = self.gen_asic_pattern(BitArray(uint=0, length=245), True)
-        # Write config
         asicbits = self.nexys.gen_asic_pattern(self._construct_asic_vector(), True)
         self.nexys.write(asicbits)
 
 
     # Methods to update the internal variables. Please don't do it manually
     # This updates the dac config
-    def update_dac(self, dac_config:dict, update_now: bool = True):
-        if self._asic_start:
-            self.dac_setup.update(dac_config)
-            # This will automatically load the new configuration if needed
-            if update_now: self.asic_update()
-        else: raise Exception("asic_init must first be called!")
+    def update_asic_config(self, bias_cfg:dict = None, dac_cfg:dict = None, maskstr:str = None):
+        """
+        Updates and writes confgbits to asic
 
-    def update_bias(self, bias_cfg:dict, update_now: bool = True):
-        if self._asic_start:
-            self.bias_setup.update(bias_cfg)
-        else: raise Exception("asic_init must first be called!")
+        bias_cfg:dict - Updates the bias settings. Only needs key/value pairs which need updated
+        dac_cfg:dict - Updates DAC settings. Only needs key/value pairs which need updated
+        """
+        if self.asic_start:
+            if bias_cfg is not None:
+                self.bias_setup.update(bias_cfg)
+            if dac_cfg is not None:
+                self.dac_setup.update(dac_cfg)
+            if maskstr is not None:
+                self._make_digital_mask(maskstr)
+            else: logger.info("Nothing to do")
+            
+            self.asic_update()
+        else: raise RuntimeError("Asic has not been initalized")
 
-    # This makes a new digital mask and rewrites the configuration to the asic 
-    def update_mask_digit(self, maskstr: str):
-        if self._asic_start:
-            self._make_digital_mask(maskstr)
-            self.asic_update()    
-        else: raise Exception("asic_init must first be called!")
 
     def enable_spi(self):
+        """
+        Starts spi bus. 
+
+        Takes no arguments, returns nothing
+        """
+
         self.nexys.spi_enable()
         self.nexys.spi_reset()
         # Set SPI clockdivider
@@ -172,9 +198,12 @@ class astropix2:
 
         self.nexys.send_routing_cmd()
 
-        print("SPI ENABLED")
+        logger.info("SPI ENABLED")
 
     def close_connection(self):
+        """
+        Terminates the spi bus
+        """
         self.nexys.close()
 
 
@@ -183,12 +212,27 @@ class astropix2:
 # Here we intitalize the 8 DAC voltageboard in slot 4. dacvals are carried over from past 
 # scripts. Default from beam_test.py:
 # Use this: (8, [0, 0, 1.1, 1, 0, 0, 1, 1.035])
-    def init_voltages(self, slot: int, vcal:float, vsupply: float, vthreshold:float, dacvals: tuple[int, list[float]] = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.4])):
+    def init_voltages(self, slot: int = 4, vcal:float = .908, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
+        """
+        Configures the voltage board
+        No required parameters. No return.
+
+        slot:int = 4 - Position of voltage board
+        vcal:float = 0.908 - Calibration of the voltage rails
+        vsupply = 2.7 - Supply Voltage
+        vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set
+        dacvals:tuple[int, list[float] - vboard dac settings. Must be fully specified if set. 
+        """
+        default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.075])
+        
         # used to ensure this has been called in the right order:
         self._voltages_exist = True
-
-        if vthreshold is not None:
-            if vthreshold > 1.7: raise Exception("Threshold voltage out of range!")
+        # Set dacvals
+        if dacvals is None:
+            dacvals = default_vdac
+        # dacvals takes precidence over vthreshold
+        elif vthreshold is not None:
+            if vthreshold > 1.5 or vthreshold < 0: logging.warning("Threshold voltage out of range of sensor!")
             dacvals[1][-1] = vthreshold
         # Create object
         self.vboard = Voltageboard(self.handle, slot, dacvals)
@@ -212,15 +256,37 @@ class astropix2:
         inj.pulsesperset = 1
     """
     # Setup Injections
-    def init_injection(self, dac_settings:tuple[int, list[float]] = (2, [0.4, 0.0]), position: int = 3, inj_period:int = 100, clkdiv:int = 400, initdelay: int = 10000, cycle: float = 0, pulseperset: int = 1):
+    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 400, initdelay: int = 10000, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = (2, [0.4, 0.0])):
+        """
+        Configure injections
+        No required arguments. No returns.
+        Optional Arguments:
+        slot: int - Location of the injection module
+        inj_voltage: float - Injection Voltage. Range from 0 to 1.8. If dac_config is set inj_voltage will be overwritten
+        inj_period: int
+        clkdiv: int
+        initdelay: int
+        cycle: float
+        pulseperset: int
+        dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
+        """
+        default_injdac = (2, [0.4, 0.0])
         # Some fault tolerance
         try:
             self._voltages_exist
         except:
-            raise Exception("init_voltages must be called first!")
+            raise RuntimeError("init_voltages must be called first!")
+        # Sets the dac_setup if it isn't specified
+        if dac_config is None:
+            dac_settings = default_injdac
+        else:
+            dac_settings = dac_config
+        # The dac_config takes presedence
+        if inj_voltage is not None and dac_config is None:
+            dac_settings[1][1] = inj_voltage
 
         # Create the object!
-        self.inj_volts = Voltageboard(self.handle, position, dac_settings)
+        self.inj_volts = Voltageboard(self.handle, slot, dac_settings)
         # set the parameters
         self.inj_volts.vcal = self.vboard.vcal
         self.inj_volts.vsupply = self.vboard.vsupply
@@ -236,37 +302,71 @@ class astropix2:
 
     # These start and stop injecting voltage. Fairly simple.
     def start_injection(self):
+        """
+        Starts Injection.
+        Takes no arguments and no return
+        """
         self.injector.start()
-        print("BEGAN INJECTION")
+        logging.info("BEGAN INJECTION")
 
     def stop_injection(self):
+        """
+        Stops Injection.
+        Takes no arguments and no return
+        """
         self.injector.stop()
-        print("STOPPED INJECTION")
+        logging.info("STOPPED INJECTION")
 
 
 ########################### Input and Output #############################
     # This method checks the chip to see if a hit has been logged
 
     def hits_present(self):
+        """
+        Looks at interupt
+        Returns bool, True if present
+        """
         if (int.from_bytes(self.nexys.read_register(70),"big") == 0):
             return True
         else:
             return False
 
+    def get_log_header(self):
+        """
+        Returns header for use in a log file with all settings.
+        """
+        # This is not a nice line, but its the most efficent way to get all the values in the same place.
+        return f"Voltageboard settings: {self.vboard.dacvalues}\n" + f"Digital: {self.digitalconfig}\n" +f"Biasblock: {self.bias_setup}\n" + f"DAC: {self.dac_setup}\n" + f"Receiver: {self.recconfig}\n"
+
 
 ############################ Decoder Stuffs ##############################
     # This function generates a list of the hits in the stream. Retuerns a bytearray
 
-    def get_readout(self, return_hex: bool = False):
+    def get_readout(self):
+        """
+        Reads hit buffer.
+        No arguments. 
+        Returns bytearray
+        """
         self.nexys.write_spi_bytes(20)
         readout = self.nexys.read_spi_fifo()
-        if return_hex:
-            return binascii.hexlify(readout)
-        else:
-            return readout
+        return readout
 
 
-    def decode_readout(self, readout, printer: bool = False):
+    def decode_readout(self, readout:bytearray, i:int, printer: bool = False):
+        """
+        Decodes readout
+
+        Required argument:
+        readout: Bytearray - readout from sensor, not the printed Hex values
+        i: int - Readout number
+
+        Optional:
+        printer: bool - Print decoded output to terminal
+
+        Returns dataframe
+        """
+
         list_hits = self.decode.hits_from_readoutstream(readout)
         hit_list = []
         for hit in list_hits:
@@ -286,32 +386,42 @@ class astropix2:
             # will give terminal output if desiered
             if printer:
                 print(
-                f"Header: ChipId: {wrong_id}\tPayload: {wrong_payload}\t"
+                f"{i} Header: ChipId: {wrong_id}\tPayload: {wrong_payload}\t"
                 f"Location: {location}\tRow/Col: {'Col' if col else 'Row'}\t"
                 f"Timestamp: {timestamp}\t"
                 f"ToT: MSB: {tot_msb}\tLSB: {tot_lsb} Total: {tot_total} ({(tot_total * self.sampleclock_period_ns)/1000.0} us)"
             )
             # hits are sored in dictionairy form
+            # Look into dataframe
             hits = {
-                'Chip ID': wrong_id,
-                'payload': wrong_payload,
+                'readout': i,
+                'Chip ID': id,
+                'payload': payload,
                 'location': location,
                 'row/col': ('Col' if col else 'Row'),
                 'timestamp': timestamp,
                 'tot_msb': tot_msb,
                 'tot_lsb': tot_lsb,
                 'tot_total': tot_total,
-                'tot_ns': ((tot_total * self.sampleclock_period_ns)/1000.0),
-                'hit_bits': hit
+                'tot_us': ((tot_total * self.sampleclock_period_ns)/1000.0),
+                'hit_bits': hit,
+                'hittime': time.time()
                 }
             hit_list.append(hits)
-        return hit_list
+
+        # Much simpler to convert to df in the return statement vs df.concat
+        return pd.DataFrame(hit_list)
 
     # To be called when initalizing the asic, clears the FPGAs memory 
-    def dump_fpga(self, decode = False, printer = False):
+    def dump_fpga(self):
+        """
+        Reads out hit buffer and disposes of the output.
+
+        Does not return or take arguments. 
+        """
         readout = self.get_readout()
-        if decode:
-            return self.decode_readout(readout, printer)
+        del readout
+
 
 
 

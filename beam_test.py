@@ -1,157 +1,171 @@
-# -*- coding: utf-8 -*-
-""""""
 """
-Created on Sat Jun 26 00:10:56 2021
+Updated version of beam_test.py using the astropix.py module
 
-@author: Nicolas Striebig
+Author: Autumn Bauman 
 """
 
-from modules.asic import Asic
-from modules.injectionboard import Injectionboard
-from modules.nexysio import Nexysio
-from modules.voltageboard import Voltageboard
-from modules.decode import Decode
-
-from utils.utils import wait_progress
-
+#from msilib.schema import File
+from astropix import astropix2
+import modules.hitplotter as hitplotter
 import binascii
-
-import os
+import datetime
+import pandas as pd
+import numpy as np
 import time
+import logging
+import argparse
 
-def main():
+from modules.setup_logger import logger
+logger = logging.getLogger(__name__)
+  
 
-    nexys = Nexysio()
+#Init stuffs
+def main(args):
 
-    # Open FTDI Device with Index 0
-    #handle = nexys.open(0)
-    handle = nexys.autoopen()
+    # Used for creating the mask
+    masked = False
+    if args.mask is not None:
+        masked = True
+        with open(args.mask, 'r') as file:
+            bitmask = file.read()
 
-    # Write and read directly to register
-    # Example: Write 0x55 to register 0x09 and read it back
-    nexys.write_register(0x09, 0x55, True)
-    nexys.read_register(0x09)
+    # Prepare everything, create the object
+    astro = astropix2(inject=args.inject)
 
-    nexys.spi_reset()
-    nexys.sr_readback_reset()
+    # Passes mask if specified, else it creates an analog mask of (0,0)
+    if masked: 
+        astro.asic_init(digital_mask=bitmask)
+    else: 
+        astro.asic_init()
 
-    #
-    # Configure ASIC
-    #
+    astro.init_voltages(vthreshold=args.threshold)
+    # If injection is on initalize the board
+    if args.inject:
+        astro.init_injection(inj_voltage=args.vinj)
+    astro.enable_spi() 
+    logger.info("Chip configured")
+    astro.dump_fpga()
 
-    # Write to asicSR
-    asic = Asic(handle)
-    asic.update_asic()
+    if args.inject:
+        astro.start_injection()
 
-    # Example: Update Config Bit
-    # asic.digitalconfig['En_Inj17'] = 1
-    # asic.dacs['vn1'] = 63
-    # asic.update_asic()
+    max_errors = args.errormax
+    i = 0
+    errors = 0 # Sets the threshold 
 
-    #
-    # Configure Voltageboard
-    #
+    # Prepares the file paths 
+    if args.saveascsv: # Here for csv
+        csvpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.csv'
+    # And here for the text files/logs
+    logpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.log'
 
-    # Configure 8 DAC Voltageboard in Slot 4 with list values
-    # 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix
-    vboard1 = Voltageboard(handle, 4, (8, [0, 0, 1.1, 1, 0, 0, 1, 1.1]))
+    # textfiles are always saved so we open it up a
+    logfile = open(logpath,'w')
+    # Writes all the config information to the file
+    logfile.write(astro.get_log_header())
 
-    # Set measured 1V for one-point calibration
-    vboard1.vcal = 0.989
-    vboard1.vsupply = 3.3
+    # Enables the hitplotter and uses logic on whether or not to save the images
+    if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=args.outdir if args.plotsave else None)
 
-    # Update voltageboards
-    vboard1.update_vb()
+    try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
 
-    # Write only first 3 DACs, other DACs will be 0
-    # vboard1.dacvalues = (8, [1.2, 1, 1])
-    # vboard1.update_vb()
+        while True: #This loop doesn't need to use any conditional logic as all the exit cases are easier to handle with 
+            # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
+            if args.maxhits is not None:
+                if i >= args.maxhits: break
+            
+            if astro.hits_present(): # Checks if hits are present
+                time.sleep(.1) # this is probably not needed, will ask Nick
+                readout = astro.get_readout() # Gets the bytearray from the chip
+                # Writes the hex version to hits
+                logfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
+                # Added fault tolerance for decoding, the limits of which are set through arguments
+                try:
+                    hits = astro.decode_readout(readout, i, printer = True)
+                except IndexError:
+                    errors += 1
+                    logger.error(f"Decoding failed. Failure {errors} of {max_errors}")
+                    # If it has errored out, this will exit the loop and program
+                    if errors > max_errors:
+                        logger.critical(f"Decoding failed {errors} times on an index error. Terminating Progam...")
+                        break
+                    
+                    continue
+                # If we are saving a csv this will write it out. 
+                if args.saveascsv:
+                    # Since we need the header only on the first hit readout this opens it in write mode first with header set true
+                    # and for all times after set false and append mode
+                    hits.write_csv(csvpath, header=False if i!=0 else True, mode='a' if i != 0 else 'w')
 
-    #
-    # Configure Injectionboard
-    #
+                # This handels the hitplotting. Code by Henrike and Amanda
+                if args.showhits:
+                    rows,columns=[],[]
+                    if len(decList)>0:#safeguard against bad readouts without recorded decodable hits
+                        #Isolate row and column information from array returned from decoder
+                        decList=np.array(decList)
+                        location = np.array(decList[:,0])
+                        rowOrCol = np.array(decList[:,1])
+                        rows = location[rowOrCol==0]
+                        columns = location[rowOrCol==1]
+                    plotter.plot_event( rows, columns, i)
+                # Increments the run counter
+                i += 1
+            # If no hits are present this waits for some to accumulate
+            else: time.sleep(.1)
 
-    # Set Injection level
-    injvoltage = Voltageboard(handle, 3, (2, [0.4, 0.0]))
-    injvoltage.vcal = vboard1.vcal
-    injvoltage.vsupply = vboard1.vsupply
-    injvoltage.update_vb()
 
-    inj = Injectionboard(handle)
 
-    # Set Injection Params for 330MHz patgen clock
-    inj.period = 100
-    inj.clkdiv = 400
-    inj.initdelay = 10000
-    inj.cycle = 0
-    inj.pulsesperset = 1
+    # Ends program cleanly when a keyboard interupt is sent.
+    except KeyboardInterrupt:
+        logger.critical("Keyboard interupt. Program halt!")
+    
+    logfile.close() # Close open file
+    if args.inject: astro.stop_injection()   #stops injection
+    astro.close() # Closes SPI
+    logger.info("Program terminated")
+    # END OF PROGRAM
 
-    #
-    # SPI
-    #
-
-    # Enable SPI
-    nexys.spi_enable()
-    nexys.spi_reset()
-
-    # Set SPI clockdivider
-    # freq = 100 MHz/spi_clkdiv
-    nexys.spi_clkdiv = 255
-
-    #asic.dacs['vn1'] = 5
-
-    # Generate bitvector for SPI ASIC config
-    asic_bitvector = asic.gen_asic_vector()
-    spi_data = nexys.asic_spi_vector(asic_bitvector, True, 10)
-
-    # Write Config via spi
-    # nexys.write_spi(spi_data, False, 8191)
-
-    # Send Routing command
-    nexys.send_routing_cmd()
-
-    # Reset SPI Read FIFO
-
-    #inj.start()
-    inj.stop()
-
-    wait_progress(3)
-
-    #decode = Decode()
 
     
-    """ i = 0
-    while os.path.exists("log/sample%s.log" % i):
-        i += 1
-
-    file = open("log/sample%s.log" % i, "w") """
-    timestr = time.strftime("beam_%Y%m%d-%H%M%S")
-    file = open("log/%s.log" % timestr, "w")
-    file.write(f"Voltageboard settings: {vboard1.dacvalues}\n")
-    file.write(f"Digital: {asic.digitalconfig}\n")
-    file.write(f"Biasblock: {asic.biasconfig}\n")
-    file.write(f"DAC: {asic.dacs}\n")
-    file.write(f"Receiver: {asic.recconfig}\n")
-
-    readout = bytearray()
-
-    while True:
-        print("Reg: {}", int.from_bytes(nexys.read_register(70),"big"))
-        if(int.from_bytes(nexys.read_register(70),"big") == 0):
-            time.sleep(0.1)
-            nexys.write_spi_bytes(20)
-            readout = nexys.read_spi_fifo()
-            file.write(str(binascii.hexlify(readout)))
-
-            print(binascii.hexlify(readout))
-
-            #decode.decode_astropix2_hits(decode.hits_from_readoutstream(readout))
-
-    # inj.stop()
-
-    # Close connection
-    nexys.close()
-
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description='Astropix Driver Code')
+    parser.add_argument('-n', '--name', default='', required=False,
+                    help='Option to give extra name to output files upon running')
+
+    parser.add_argument('-o', '--outdir', default='.', required=False,
+                    help='Output Directory')
+
+    parser.add_argument('-s', '--showhits', action='store_true',
+                    default=False, required=False,
+                    help='Display hits in real time during data taking')
+    
+    parser.add_argument('-p', '--plotsave', action='store_true', default=False, required=False,
+                    help='Save plots as image files. DEFAULT FALSE')
+    
+    parser.add_argument('-c', '--saveascsv', action='store_true', 
+                    default=False, required=False, 
+                    help='save output files as CSV. If False, save as txt')
+    
+    parser.add_argument('-i', '--inject', action='store_true',default=False,
+                    help =  'Toggle injection on and off. DEFAULT: OFF')
+
+    parser.add_argument('-v','--vinj', action='store', default = 0.4, type=float,
+                    help = 'Specify injection voltage. DEFAULT 0.4V')
+
+    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
+                    help = 'filepath to digital mask. Required to enable pixels not (0,0)')
+
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=1.075,
+                    help = 'Threshold voltage for digital ToT (in V). DEFAULT 1.075V')
+    
+    parser.add_argument('-E', '--errormax', action='store', type=int, default='0', 
+                    help='Maximum index errors allowed during decoding. DEFAULT 0')
+    parser.add_argument('-M', '--maxruns', type=int, action='store', default=None,
+                    help = 'Maximum number of readouts')
+    
+    parser.add_argument
+    args = parser.parse_args()
+    
+    main(args)
