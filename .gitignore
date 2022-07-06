@@ -139,3 +139,7 @@ cython_debug/
 
 #pylint
 .pylint.d/
+
+
+new-sensor-test.py
+astropy_validation.py
