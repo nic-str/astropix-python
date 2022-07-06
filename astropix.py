@@ -398,7 +398,7 @@ class astropix2:
                 'Chip ID': id,
                 'payload': payload,
                 'location': location,
-                'row/col': ('Col' if col else 'Row'),
+                'rowcol': (1 if col else 0),
                 'timestamp': timestamp,
                 'tot_msb': tot_msb,
                 'tot_lsb': tot_lsb,

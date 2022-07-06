@@ -56,11 +56,13 @@ def main(args):
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
         csvpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.csv'
+
     # And here for the text files/logs
     logpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.log'
 
-    # textfiles are always saved so we open it up a
+    # textfiles are always saved so we open it up 
     logfile = open(logpath,'w')
+
     # Writes all the config information to the file
     logfile.write(astro.get_log_header())
 
@@ -95,16 +97,19 @@ def main(args):
                 if args.saveascsv:
                     # Since we need the header only on the first hit readout this opens it in write mode first with header set true
                     # and for all times after set false and append mode
-                    hits.write_csv(csvpath, header=False if i!=0 else True, mode='a' if i != 0 else 'w')
+                    hits.write_csv(
+                        csvpath, 
+                        header=False if i!=0 else True, 
+                        mode='a' if i != 0 else 'w'
+                        )
 
                 # This handels the hitplotting. Code by Henrike and Amanda
                 if args.showhits:
                     rows,columns=[],[]
-                    if len(decList)>0:#safeguard against bad readouts without recorded decodable hits
+                    if len(hits)>0:#safeguard against bad readouts without recorded decodable hits
                         #Isolate row and column information from array returned from decoder
-                        decList=np.array(decList)
-                        location = np.array(decList[:,0])
-                        rowOrCol = np.array(decList[:,1])
+                        location = hits.location.to_numpy()
+                        rowOrCol = hits.rowcol.to_numpy()
                         rows = location[rowOrCol==0]
                         columns = location[rowOrCol==1]
                     plotter.plot_event( rows, columns, i)
@@ -162,6 +167,7 @@ if __name__ == "__main__":
     
     parser.add_argument('-E', '--errormax', action='store', type=int, default='0', 
                     help='Maximum index errors allowed during decoding. DEFAULT 0')
+
     parser.add_argument('-M', '--maxruns', type=int, action='store', default=None,
                     help = 'Maximum number of readouts')
     
