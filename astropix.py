@@ -146,6 +146,7 @@ class astropix2:
 
         asicbits = self.nexys.gen_asic_pattern(self._construct_asic_vector(), True)
         self.nexys.write(asicbits)
+        logger.info("Wrote configbits successfully")
 
 
     # Methods to update the internal variables. Please don't do it manually
@@ -164,8 +165,9 @@ class astropix2:
                 self.dac_setup.update(dac_cfg)
             if maskstr is not None:
                 self._make_digital_mask(maskstr)
-            else: logger.info("Nothing to do")
-            
+            else: 
+                logger.info("update_asic_config() got no argumennts, nothing to do.")
+                return None
             self.asic_update()
         else: raise RuntimeError("Asic has not been initalized")
 
@@ -220,10 +222,11 @@ class astropix2:
         slot:int = 4 - Position of voltage board
         vcal:float = 0.908 - Calibration of the voltage rails
         vsupply = 2.7 - Supply Voltage
-        vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set
+        vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set. UNITS: mV
         dacvals:tuple[int, list[float] - vboard dac settings. Must be fully specified if set. 
         """
-        default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.075])
+        # The default values to pass to the voltage dac. Last value in list is threshold voltage, default 100mV or 1.1 
+        default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
         
         # used to ensure this has been called in the right order:
         self._voltages_exist = True
@@ -231,8 +234,16 @@ class astropix2:
         if dacvals is None:
             dacvals = default_vdac
         # dacvals takes precidence over vthreshold
+
         elif vthreshold is not None:
-            if vthreshold > 1.5 or vthreshold < 0: logging.warning("Threshold voltage out of range of sensor!")
+            # Turns from mV to V with the 1V offset normally present
+            vthreshold = (vthreshold/1000) + 1 
+            if vthreshold > 1.5 or vthreshold < 0:
+                 logging.warning("Threshold voltage out of range of sensor!")
+                 if vthreshold <= 0: 
+                     vthreshold = 1.100
+                     logging.error("Threshold value too low, setting to default 100mV")
+
             dacvals[1][-1] = vthreshold
         # Create object
         self.vboard = Voltageboard(self.handle, slot, dacvals)
@@ -256,7 +267,7 @@ class astropix2:
         inj.pulsesperset = 1
     """
     # Setup Injections
-    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 400, initdelay: int = 10000, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = (2, [0.4, 0.0])):
+    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 400, initdelay: int = 10000, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None):
         """
         Configure injections
         No required arguments. No returns.
@@ -270,18 +281,21 @@ class astropix2:
         pulseperset: int
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
-        default_injdac = (2, [0.4, 0.0])
+        # Default configuration for the dac
+        default_injdac = (2, [0.4, 0.3])
         # Some fault tolerance
         try:
             self._voltages_exist
         except:
-            raise RuntimeError("init_voltages must be called first!")
+            raise RuntimeError("init_voltages must be called before init_injection!")
+
         # Sets the dac_setup if it isn't specified
         if dac_config is None:
             dac_settings = default_injdac
         else:
             dac_settings = dac_config
-        # The dac_config takes presedence
+        # The dac_config takes presedence over a specified threshold.
+        # 
         if inj_voltage is not None and dac_config is None:
             dac_settings[1][1] = inj_voltage
 
@@ -323,7 +337,7 @@ class astropix2:
 
     def hits_present(self):
         """
-        Looks at interupt
+        Looks at interrupt
         Returns bool, True if present
         """
         if (int.from_bytes(self.nexys.read_register(70),"big") == 0):
@@ -404,7 +418,7 @@ class astropix2:
                 'tot_lsb': tot_lsb,
                 'tot_total': tot_total,
                 'tot_us': ((tot_total * self.sampleclock_period_ns)/1000.0),
-                'hit_bits': hit,
+                'hit_bits': binascii.hexlify(hit),
                 'hittime': time.time()
                 }
             hit_list.append(hits)

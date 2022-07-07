@@ -7,6 +7,18 @@ Created on Tue Dec 28 19:03:40 2021
 """
 
 import logging
+import datetime
 
-logging.basicConfig(level=logging.INFO)
+# This sets the logger name.
+logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
+
+#
+logging.basicConfig(filename=logname,
+                    filemode='a',
+                    format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.DEBUG)
+
+
+
 logger = logging.getLogger(__name__)

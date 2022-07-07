@@ -16,6 +16,9 @@ import logging
 import argparse
 
 from modules.setup_logger import logger
+
+
+
 logger = logging.getLogger(__name__)
   
 
@@ -86,7 +89,7 @@ def main(args):
                     hits = astro.decode_readout(readout, i, printer = True)
                 except IndexError:
                     errors += 1
-                    logger.error(f"Decoding failed. Failure {errors} of {max_errors}")
+                    logger.error(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
                     # If it has errored out, this will exit the loop and program
                     if errors > max_errors:
                         logger.critical(f"Decoding failed {errors} times on an index error. Terminating Progam...")
@@ -97,11 +100,12 @@ def main(args):
                 if args.saveascsv:
                     # Since we need the header only on the first hit readout this opens it in write mode first with header set true
                     # and for all times after set false and append mode
-                    hits.write_csv(
-                        csvpath, 
-                        header=False if i!=0 else True, 
-                        mode='a' if i != 0 else 'w'
-                        )
+                    with open(csvpath, 'a' if i != 0 else 'w') as csvfile:
+                        hits.to_csv(
+                            csvfile, 
+                            header=False if i!=0 else True
+                            )
+                        csvfile.write('\n')
 
                 # This handels the hitplotting. Code by Henrike and Amanda
                 if args.showhits:
@@ -162,8 +166,8 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
                     help = 'filepath to digital mask. Required to enable pixels not (0,0)')
 
-    parser.add_argument('-t', '--threshold', type = float, action='store', default=1.075,
-                    help = 'Threshold voltage for digital ToT (in V). DEFAULT 1.075V')
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
     
     parser.add_argument('-E', '--errormax', action='store', type=int, default='0', 
                     help='Maximum index errors allowed during decoding. DEFAULT 0')
