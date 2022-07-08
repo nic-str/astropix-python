@@ -144,7 +144,7 @@ if __name__ == "__main__":
                     help='Option to give extra name to output files upon running')
 
     parser.add_argument('-o', '--outdir', default='.', required=False,
-                    help='Output Directory')
+                    help='Output Directory for all datafiles')
 
     parser.add_argument('-s', '--showhits', action='store_true',
                     default=False, required=False,
@@ -160,8 +160,8 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inject', action='store_true',default=False,
                     help =  'Toggle injection on and off. DEFAULT: OFF')
 
-    parser.add_argument('-v','--vinj', action='store', default = 0.4, type=float,
-                    help = 'Specify injection voltage. DEFAULT 0.4V')
+    parser.add_argument('-v','--vinj', action='store', default = 400, type=float,
+                    help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
 
     parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
                     help = 'filepath to digital mask. Required to enable pixels not (0,0)')
