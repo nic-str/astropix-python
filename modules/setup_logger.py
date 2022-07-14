@@ -10,7 +10,7 @@ import logging
 import datetime
 
 # This sets the logger name.
-logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
+# logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
 """
 # Loglevel
 logging.basicConfig(filename=logname,

@@ -128,7 +128,7 @@ class astropix2:
         else: self._make_analog_mask()
         
         self._make_digitalconfig()
-        self._make_digital_mask()
+        #self._make_digital_mask()
         # Loads it to the chip
         logger.info("LOADING TO ASIC...")
         self.asic_update()
@@ -200,7 +200,7 @@ class astropix2:
 # Here we intitalize the 8 DAC voltageboard in slot 4. dacvals are carried over from past 
 # scripts. Default from beam_test.py:
 # Use this: (8, [0, 0, 1.1, 1, 0, 0, 1, 1.035])
-    def init_voltages(self, slot: int = 4, vcal:float = .908, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
+    def init_voltages(self, slot: int = 4, vcal:float = .989, vsupply: float = 2.7, vthreshold:float = None, dacvals: tuple[int, list[float]] = None):
         """
         Configures the voltage board
         No required parameters. No return.
@@ -255,7 +255,7 @@ class astropix2:
         inj.pulsesperset = 1
     """
     # Setup Injections
-    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 400, initdelay: int = 10000, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None):
+    def init_injection(self, slot: int = 3, inj_voltage:float = None, inj_period:int = 100, clkdiv:int = 300, initdelay: int = 100, cycle: float = 0, pulseperset: int = 1, dac_config:tuple[int, list[float]] = None):
         """
         Configure injections
         No required arguments. No returns.
@@ -272,7 +272,7 @@ class astropix2:
         # Default configuration for the dac
         # 0.4 is injection voltage
         # 2 is slot number for inj board
-        default_injdac = (2, [0.4, 0.0])
+        default_injdac = (2, [0.3, 0.0])
         # Some fault tolerance
         try:
             self._voltages_exist
@@ -286,7 +286,7 @@ class astropix2:
             dac_settings = dac_config
 
         # The dac_config takes presedence over a specified threshold.
-        if inj_voltage is not None and dac_config is None:
+        if (inj_voltage is not None) and (dac_config is None):
             # elifs check to ensure we are not injecting a negative value because we don't have that ability
             if inj_voltage < 0:
                 raise ValueError("Cannot inject a negative voltage!")
@@ -554,6 +554,6 @@ class astropix2:
             print(f'Allowed Values 0 - {2**nbits-1}')
 
     # A progress bar! So facny I know 
-    def _wait_progress(seconds:int):
+    def _wait_progress(self, seconds:int):
         for _ in tqdm(range(seconds), desc=f'Wait {seconds} s'):
             time.sleep(1)

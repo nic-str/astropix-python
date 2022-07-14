@@ -20,7 +20,7 @@ from modules.setup_logger import logger
 
 
 # This sets the logger name.
-logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
+#logname = "./runlogs/AstropixRunlog_" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".log"
 
 
 
@@ -38,7 +38,7 @@ decode_fail_frame = pd.DataFrame({
                 'tot_us': np.nan,
                 'hit_bits': np.nan,
                 'hittime': np.nan
-                }
+                }, index=[0]
 )
 
   
@@ -80,7 +80,7 @@ def main(args):
 
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
-        csvpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvpath = args.outdir +'/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.csv'
         csvframe =pd.DataFrame(columns = [
                 'readout',
                 'Chip ID',
@@ -97,7 +97,7 @@ def main(args):
         ])
 
     # And here for the text files/logs
-    logpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.log'
+    logpath = args.outdir + '/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
     logfile = open(logpath,'w')
     # Writes all the config information to the file
@@ -111,8 +111,8 @@ def main(args):
         while errors <= max_errors: # Loop continues 
 
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
-            if args.maxhits is not None:
-                if i >= args.maxhits: break
+            if args.maxruns is not None:
+                if i >= args.maxruns: break
             
             if astro.hits_present(): # Checks if hits are present
                 # We aren't using timeit, just measuring the diffrence in ns
@@ -142,7 +142,8 @@ def main(args):
 
 
                 # If we are saving a csv this will write it out. 
-                csvframe = csvframe.concat(hits)
+                if args.saveascsv:
+                    csvframe = pd.concat([csvframe, hits])
 
                 # This handels the hitplotting. Code by Henrike and Amanda
                 if args.showhits:
@@ -174,9 +175,10 @@ def main(args):
     except Exception as e:
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
-        if args.saveascsv: hits.to_csv(csvpath)    
+        if args.saveascsv: hits.to_csv(csvpath) 
+        if args.inject: astro.stop_injection()   
         logfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
-        astro.close() # Closes SPI
+        astro.close_connection() # Closes SPI
         logger.info("Program terminated")
     # END OF PROGRAM
 
@@ -206,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--inject', action='store_true',default=False,
                     help =  'Toggle injection on and off. DEFAULT: OFF')
 
-    parser.add_argument('-v','--vinj', action='store', default = 400, type=float,
+    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
 
     parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
@@ -249,8 +251,7 @@ if __name__ == "__main__":
         loglevel = logging.CRITICAL
     
     # Loglevel 
-    logging.basicConfig(filename=logname,
-                    filemode='a',
+    logging.basicConfig(
                     format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
                     datefmt='%H:%M:%S',
                     level= loglevel)
