@@ -128,7 +128,7 @@ class astropix2:
         else: self._make_analog_mask()
         
         self._make_digitalconfig()
-        self._make_reconfig()
+        self._make_digital_mask()
         # Loads it to the chip
         logger.info("LOADING TO ASIC...")
         self.asic_update()
@@ -286,7 +286,7 @@ class astropix2:
         # Some fault tolerance
         try:
             self._voltages_exist
-        except:
+        except Exception:
             raise RuntimeError("init_voltages must be called before init_injection!")
 
         # Sets the dac_setup if it isn't specified
@@ -294,8 +294,8 @@ class astropix2:
             dac_settings = default_injdac
         else:
             dac_settings = dac_config
+
         # The dac_config takes presedence over a specified threshold.
-        # 
         if inj_voltage is not None and dac_config is None:
             # elifs check to ensure we are not injecting a negative value because we don't have that ability
             if inj_voltage < 0:
@@ -465,8 +465,8 @@ class astropix2:
             self.nexys.read_register(0x09)
             self.nexys.spi_reset()
             self.nexys.sr_readback_reset()
-        except: 
-            raise Exception("Could not read or write from astropix!")
+        except Exception: 
+            raise RuntimeError("Could not read or write from astropix!")
     
     # _make_digitalconfig(): Constructs the digitalconfig dictionairy. 
     # Takes no arguments currently, and there is no way to update 
