@@ -11,14 +11,14 @@ import datetime
 
 # This sets the logger name.
 logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
-
-#
+"""
+# Loglevel
 logging.basicConfig(filename=logname,
                     filemode='a',
                     format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
-
+"""
 
 
 logger = logging.getLogger(__name__)

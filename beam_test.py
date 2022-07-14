@@ -5,6 +5,7 @@ Author: Autumn Bauman
 """
 
 #from msilib.schema import File
+from http.client import SWITCHING_PROTOCOLS
 from astropix import astropix2
 import modules.hitplotter as hitplotter
 import binascii
@@ -18,8 +19,10 @@ import argparse
 from modules.setup_logger import logger
 
 
+# This sets the logger name.
+logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
 
-logger = logging.getLogger(__name__)
+
 
 # This is the dataframe which is written to the csv if the decoding fails
 decode_fail_frame = pd.DataFrame({
@@ -166,7 +169,7 @@ def main(args):
         logger.info("Keyboard interupt. Program halt!")
     # Catches other exceptions
     except Exception as e:
-        logger.critical(f"Encountered Unexpected Exception! \n{e}")
+        logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
         logfile.close() # Close open file
         if args.saveascsv: csvfile.close()
@@ -218,6 +221,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--timeit', action="store_true", default=False,
                     help='Prints runtime from seeing a hit to finishing the decode to terminal')
+
+    parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
+                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: D')
     """
     parser.add_argument('--ludicrous-speed', type=bool, action='store_true', default=False,
                     help="Fastest possible data collection. No decode, no output, no file.\
@@ -226,5 +232,27 @@ if __name__ == "__main__":
     """
     parser.add_argument
     args = parser.parse_args()
+
+    # Sets the loglevel
+    ll = args.loglevel
+    if ll == 'D':
+        loglevel = logging.DEBUG
+    elif ll == 'I':
+        loglevel = logging.INFO
+    elif ll == 'E':
+        loglevel = logging.ERROR
+    elif ll == 'W':
+        loglevel = logging.WARNING
+    elif ll == 'C':
+        loglevel = logging.CRITICAL
+    
+    # Loglevel 
+    logging.basicConfig(filename=logname,
+                    filemode='a',
+                    format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
+                    datefmt='%H:%M:%S',
+                    level= loglevel)
+
+    logger = logging.getLogger(__name__)
     
     main(args)

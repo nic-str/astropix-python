@@ -184,27 +184,13 @@ class astropix2:
         # Set SPI clockdivider
         # freq = 100 MHz/spi_clkdiv
         self.nexys.spi_clkdiv = 255
-
-        # This section is here in case it is needed, but I doubt it so 
-        # it will stay commented out unless needed
-
-        #asic.dacs['vn1'] = 5
-        """
-        # Generate bitvector for SPI ASIC config
-        asic_bitvector = self._construct_asic_vector()
-        spi_data = self.nexys.asic_spi_vector(asic_bitvector, True, 10)
-
-        # Write Config via spi
-        # nexys.write_spi(spi_data, False, 8191)
-        """
-
         self.nexys.send_routing_cmd()
-
         logger.info("SPI ENABLED")
 
     def close_connection(self):
         """
-        Terminates the spi bus
+        Terminates the spi bus.
+        Takes no arguments. No returns.
         """
         self.nexys.close()
 
@@ -225,7 +211,9 @@ class astropix2:
         vthreshold:float = None - ToT threshold value. Takes precedence over dacvals if set. UNITS: mV
         dacvals:tuple[int, list[float] - vboard dac settings. Must be fully specified if set. 
         """
-        # The default values to pass to the voltage dac. Last value in list is threshold voltage, default 100mV or 1.1 
+        # The default values to pass to the voltage dac. Last value in list is threshold voltage, default 100mV or 1.1
+        # From nicholas's beam_test.py:
+        # 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix 
         default_vdac = (8, [0, 0, 1.1, 1, 0, 0, 1, 1.100])
         
         # used to ensure this has been called in the right order:
@@ -239,10 +227,10 @@ class astropix2:
             # Turns from mV to V with the 1V offset normally present
             vthreshold = (vthreshold/1000) + 1 
             if vthreshold > 1.5 or vthreshold < 0:
-                 logging.warning("Threshold voltage out of range of sensor!")
+                 logger.warning("Threshold voltage out of range of sensor!")
                  if vthreshold <= 0: 
                      vthreshold = 1.100
-                     logging.error("Threshold value too low, setting to default 100mV")
+                     logger.error("Threshold value too low, setting to default 100mV")
 
             dacvals[1][-1] = vthreshold
         # Create object
@@ -301,7 +289,7 @@ class astropix2:
             if inj_voltage < 0:
                 raise ValueError("Cannot inject a negative voltage!")
             elif inj_voltage > 1800:
-                raise ValueError("Cannot inject more than 1800mV!")
+                logger.warning("Cannot inject more than 1800mV!")
             else:
                 #Convert from mV to V
                 inj_voltage = inj_voltage / 1000
@@ -329,7 +317,7 @@ class astropix2:
         Takes no arguments and no return
         """
         self.injector.start()
-        logging.info("BEGAN INJECTION")
+        logger.info("BEGAN INJECTION")
 
     def stop_injection(self):
         """
@@ -337,7 +325,7 @@ class astropix2:
         Takes no arguments and no return
         """
         self.injector.stop()
-        logging.info("STOPPED INJECTION")
+        logger.info("STOPPED INJECTION")
 
 
 ########################### Input and Output #############################
@@ -375,7 +363,7 @@ class astropix2:
         return readout
 
 
-    def decode_readout(self, readout:bytearray, i:int, printer: bool = False):
+    def decode_readout(self, readout:bytearray, i:int, printer: bool = True):
         """
         Decodes readout
 
