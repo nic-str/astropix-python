@@ -73,7 +73,6 @@ def main(args):
     if args.inject:
         astro.start_injection()
 
-    
 
     max_errors = args.errormax
     i = 0
@@ -82,9 +81,20 @@ def main(args):
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
         csvpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.csv'
-        # Opens the csv file
-        csvfile = open(csvpath, 'w')
-
+        csvframe =pd.DataFrame(columns = [
+                'readout',
+                'Chip ID',
+                'payload',
+                'location',
+                'rowcol',
+                'timestamp',
+                'tot_msb',
+                'tot_lsb',
+                'tot_total',
+                'tot_us',
+                'hit_bits',
+                'hittime'
+        ])
 
     # And here for the text files/logs
     logpath = args.outdir + args.name + '_' + datetime.datetime.strftime("%Y%m%d-%H%M%S") + '.log'
@@ -98,7 +108,7 @@ def main(args):
 
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
 
-        while errors < max_errors: # Loop continues 
+        while errors <= max_errors: # Loop continues 
 
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
             if args.maxhits is not None:
@@ -108,7 +118,7 @@ def main(args):
                 # We aren't using timeit, just measuring the diffrence in ns
                 if args.timeit: start = time.time_ns()
 
-                time.sleep(.1) # this is probably not needed, will ask Nick
+                time.sleep(.1) # this is probably not needed, will ask Nicolas
 
                 readout = astro.get_readout() # Gets the bytearray from the chip
                 # Writes the hex version to hits
@@ -119,7 +129,7 @@ def main(args):
                     hits = astro.decode_readout(readout, i, printer = True)
                 except IndexError:
                     errors += 1
-                    logger.error(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
+                    logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
                     # We write out the failed decode dataframe
                     hits = decode_fail_frame
                     hits.readout = i
@@ -127,19 +137,12 @@ def main(args):
 
                     # This loggs the end of it all 
                     if errors > max_errors:
-                        logger.critical(f"Decoding failed {errors} times on an index error. Terminating Progam...")
+                        logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
                 finally: i += 1
 
 
                 # If we are saving a csv this will write it out. 
-                if args.saveascsv:
-                    # Since we need the header only on the first hit readout this opens it in write mode first with header set true
-                    # and for all times after set false and append mode
-                        hits.to_csv(
-                            csvfile, 
-                            header=False if i!=0 else True
-                            )
-                        csvfile.write('\n')
+                csvframe = csvframe.concat(hits)
 
                 # This handels the hitplotting. Code by Henrike and Amanda
                 if args.showhits:
@@ -161,7 +164,7 @@ def main(args):
                     print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
 
             # If no hits are present this waits for some to accumulate
-            else: time.sleep(.1)
+            else: time.sleep(.001)
 
 
     # Ends program cleanly when a keyboard interupt is sent.
@@ -171,9 +174,8 @@ def main(args):
     except Exception as e:
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
-        logfile.close() # Close open file
-        if args.saveascsv: csvfile.close()
-        if args.inject: astro.stop_injection()   #stops injection
+        if args.saveascsv: hits.to_csv(csvpath)    
+        logfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
         astro.close() # Closes SPI
         logger.info("Program terminated")
     # END OF PROGRAM
@@ -195,7 +197,7 @@ if __name__ == "__main__":
                     help='Display hits in real time during data taking')
     
     parser.add_argument('-p', '--plotsave', action='store_true', default=False, required=False,
-                    help='Save plots as image files. If set, will be saved in datadir DEFAULT FALSE')
+                    help='Save plots as image files. If set, will be saved in  same dir as data. DEFAULT FALSE')
     
     parser.add_argument('-c', '--saveascsv', action='store_true', 
                     default=False, required=False, 

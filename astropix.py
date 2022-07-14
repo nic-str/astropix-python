@@ -270,7 +270,9 @@ class astropix2:
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
         # Default configuration for the dac
-        default_injdac = (2, [0.3, 0.0])
+        # 0.4 is injection voltage
+        # 2 is slot number for inj board
+        default_injdac = (2, [0.4, 0.0])
         # Some fault tolerance
         try:
             self._voltages_exist
@@ -352,13 +354,13 @@ class astropix2:
 ############################ Decoder Stuffs ##############################
     # This function generates a list of the hits in the stream. Retuerns a bytearray
 
-    def get_readout(self):
+    def get_readout(self, bufferlength:int = 20):
         """
         Reads hit buffer.
-        No arguments. 
+        bufferlength:int - length of buffer to write. Multiplied by 8 to give number of bytes
         Returns bytearray
         """
-        self.nexys.write_spi_bytes(20)
+        self.nexys.write_spi_bytes(bufferlength)
         readout = self.nexys.read_spi_fifo()
         return readout
 
