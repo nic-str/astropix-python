@@ -143,3 +143,8 @@ cython_debug/
 
 new-sensor-test.py
 astropy_validation.py
+test.py
+testdat.py
+beam_test_inj.py
+beam_test_old.py
+modules/asic.py

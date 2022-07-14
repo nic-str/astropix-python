@@ -5,11 +5,10 @@ Author: Autumn Bauman
 """
 
 #from msilib.schema import File
-from http.client import SWITCHING_PROTOCOLS
+#from http.client import SWITCHING_PROTOCOLS
 from astropix import astropix2
 import modules.hitplotter as hitplotter
 import binascii
-import datetime
 import pandas as pd
 import numpy as np
 import time
@@ -20,7 +19,7 @@ from modules.setup_logger import logger
 
 
 # This sets the logger name.
-#logname = "./runlogs/AstropixRunlog_" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".log"
+logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
 
 
 
@@ -251,7 +250,8 @@ if __name__ == "__main__":
         loglevel = logging.CRITICAL
     
     # Loglevel 
-    logging.basicConfig(
+    logging.basicConfig(filename=logname,
+                    filemode='w'
                     format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
                     datefmt='%H:%M:%S',
                     level= loglevel)
