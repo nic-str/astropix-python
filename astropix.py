@@ -393,7 +393,9 @@ class astropix2:
             tot_total   = (tot_msb << 8) + tot_lsb
 
             wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
-            wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)       
+            wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)   
+
+                
             
             # will give terminal output if desiered
             if printer:
@@ -416,7 +418,6 @@ class astropix2:
                 'tot_lsb': tot_lsb,
                 'tot_total': tot_total,
                 'tot_us': ((tot_total * self.sampleclock_period_ns)/1000.0),
-                'hit_bits': binascii.hexlify(hit),
                 'hittime': time.time()
                 }
             hit_list.append(hits)

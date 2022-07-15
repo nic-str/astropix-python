@@ -35,7 +35,6 @@ decode_fail_frame = pd.DataFrame({
                 'tot_lsb': np.nan,
                 'tot_total': np.nan,
                 'tot_us': np.nan,
-                'hit_bits': np.nan,
                 'hittime': np.nan
                 }, index=[0]
 )
@@ -91,9 +90,8 @@ def main(args):
                 'tot_lsb',
                 'tot_total',
                 'tot_us',
-                'hit_bits',
                 'hittime'
-        ])
+        ], index = [0])
 
     # And here for the text files/logs
     logpath = args.outdir + '/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.log'
@@ -123,9 +121,11 @@ def main(args):
                 # Writes the hex version to hits
                 logfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 print(binascii.hexlify(readout))
+
                 # Added fault tolerance for decoding, the limits of which are set through arguments
                 try:
                     hits = astro.decode_readout(readout, i, printer = True)
+
                 except IndexError:
                     errors += 1
                     logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
@@ -137,31 +137,33 @@ def main(args):
                     # This loggs the end of it all 
                     if errors > max_errors:
                         logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
-                finally: i += 1
+                finally:
+                    i += 1
+                    errors += 1
 
 
-                # If we are saving a csv this will write it out. 
-                if args.saveascsv:
-                    csvframe = pd.concat([csvframe, hits])
+                    # If we are saving a csv this will write it out. 
+                    if args.saveascsv:
+                        csvframe = pd.concat([csvframe, hits])
 
-                # This handels the hitplotting. Code by Henrike and Amanda
-                if args.showhits:
-                    # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
-                    # safe than sorry
-                    if pd.isnull(hits.tot_msb.loc(0)):
-                        pass
-                    elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
-                        rows,columns=[],[]
-                        #Isolate row and column information from array returned from decoder
-                        location = hits.location.to_numpy()
-                        rowOrCol = hits.rowcol.to_numpy()
-                        rows = location[rowOrCol==0]
-                        columns = location[rowOrCol==1]
-                        plotter.plot_event( rows, columns, i)
+                    # This handels the hitplotting. Code by Henrike and Amanda
+                    if args.showhits:
+                        # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
+                        # safe than sorry
+                        if pd.isnull(hits.tot_msb.loc(0)):
+                            pass
+                        elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
+                            rows,columns=[],[]
+                            #Isolate row and column information from array returned from decoder
+                            location = hits.location.to_numpy()
+                            rowOrCol = hits.rowcol.to_numpy()
+                            rows = location[rowOrCol==0]
+                            columns = location[rowOrCol==1]
+                            plotter.plot_event( rows, columns, i)
 
-                # If we are logging runtime, this does it!
-                if args.timeit:
-                    print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
+                    # If we are logging runtime, this does it!
+                    if args.timeit:
+                        print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
 
             # If no hits are present this waits for some to accumulate
             else: time.sleep(.001)
@@ -174,7 +176,8 @@ def main(args):
     except Exception as e:
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
-        if args.saveascsv: hits.to_csv(csvpath) 
+        if args.saveascsv: 
+            csvframe.to_csv(csvpath) 
         if args.inject: astro.stop_injection()   
         logfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
         astro.close_connection() # Closes SPI
@@ -251,11 +254,13 @@ if __name__ == "__main__":
     
     # Loglevel 
     logging.basicConfig(filename=logname,
-                    filemode='w'
+                    filemode='w',
                     format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
                     datefmt='%H:%M:%S',
                     level= loglevel)
+    logging.getLogger().addHandler(logging.StreamHandler())
 
     logger = logging.getLogger(__name__)
+
     
     main(args)
