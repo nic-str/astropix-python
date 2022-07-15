@@ -111,7 +111,7 @@ def main(args):
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
-
+        
         while errors <= max_errors: # Loop continues 
 
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
@@ -146,8 +146,6 @@ def main(args):
                         logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
                 finally:
                     i += 1
-                    errors += 1
-
 
                     # If we are saving a csv this will write it out. 
                     if args.saveascsv:
@@ -189,7 +187,7 @@ def main(args):
         if args.inject: astro.stop_injection()   
         bitfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
         astro.close_connection() # Closes SPI
-        logger.info("Program terminated")
+        logger.info("Program terminated successfully")
     # END OF PROGRAM
 
 
@@ -270,7 +268,7 @@ if __name__ == "__main__":
 
     logging.getLogger().addHandler(sh) 
     logging.getLogger().addHandler(fh)
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(loglevel)
 
     logger = logging.getLogger(__name__)
 

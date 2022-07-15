@@ -319,7 +319,7 @@ class astropix2:
         Takes no arguments and no return
         """
         self.injector.start()
-        logger.info("BEGAN INJECTION")
+        logger.info("Began injection")
 
     def stop_injection(self):
         """
@@ -327,7 +327,7 @@ class astropix2:
         Takes no arguments and no return
         """
         self.injector.stop()
-        logger.info("STOPPED INJECTION")
+        logger.info("Stopped injection")
 
 
 ########################### Input and Output #############################
@@ -389,7 +389,7 @@ class astropix2:
             col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
             timestamp   = int(hit[2])
             tot_msb     = int(hit[3]) & 0b1111
-            tot_lsb     = int(hit[4])
+            tot_lsb     = int(hit[4])   
             tot_total   = (tot_msb << 8) + tot_lsb
 
             wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
