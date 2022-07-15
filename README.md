@@ -139,7 +139,7 @@ Options:
 | `-n` `--name` | `-n [SOMESTRING]` | Set additional name to be added to the timestamp in file outputs | None |
 | `-o` `--outdir`| `-o [DIRECTORY]` | Directory to save all output files to. Will be created if it doesn't exist. | `./` |
 | `-m` `--mask` | `-m [PATH]`       | Enable a masked digital output. Takes a path to a text file specifying which pixels are enabled. If not specified will default to (0,0). | None|
-| `-c` `--saveascsv` | `-c`         | Toggle saving csv files on and off | Does not save |
+| `-c` `--saveascsv` | `-c`         | Toggle saving csv files on and off | Does not save csv |
 | `-s` `--showhits` | `-s`          | Display hits in real time | Off |
 | `-p` `--plotsave` | `-p`          | Saves real time plots as image files. Stored in outdir. | Does not save plots |
 | `-t` `--threshold`| `-t [VOLTAGE]`| Sets digital threshold voltage in mV. | `100mV` |
