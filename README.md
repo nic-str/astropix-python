@@ -142,12 +142,12 @@ Options:
 | `-c` `--saveascsv` | `-c`         | Toggle saving csv files on and off | Does not save |
 | `-s` `--showhits` | `-s`          | Display hits in real time | Off |
 | `-p` `--plotsave` | `-p`          | Saves real time plots as image files. Stored in outdir. | Does not save plots |
-| `-t` `--threshold`| `-t [VOLTAGE]`| Sets digital threshold voltage in mV. | 100mV |
+| `-t` `--threshold`| `-t [VOLTAGE]`| Sets digital threshold voltage in mV. | `100mV` |
 | `-i` `--inject`| `-i`             | Toggles injection on or off. Injects 300mV unless specified. | Off|
 | `-M` `--maxruns` | `-M [int]`     | Sets the maximum number of readouts the code will process before exiting. | No maximum |
-| `-E` `--errormax`| `-E [int]`     | Amount of index errors encountered in the decode before the program terminates. | 0 |
-| `-v` `--vinj` | `-v [VOLTAGE]`    | Sets voltage of injection in mV. Does not enable injection. | 300mV |
-| `-L` `--loglevel` | `-L [D,I,E,W,C]`| Loglevel to be stored. Applies to both console and file. Options: D - debug, I - info, E - error, W - warning, C - critical | I |
+| `-E` `--errormax`| `-E [int]`     | Amount of index errors encountered in the decode before the program terminates. | `0` |
+| `-v` `--vinj` | `-v [VOLTAGE]`    | Sets voltage of injection in mV. Does not enable injection. | `300mV` |
+| `-L` `--loglevel` | `-L [D,I,E,W,C]`| Loglevel to be stored. Applies to both console and file. Options: D - debug, I - info, E - error, W - warning, C - critical | `I` |
 | `--timeit` | `--timeit`           | Measures the time it took to decode and store a hitstream. | Off |
 
 
