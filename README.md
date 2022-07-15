@@ -94,7 +94,7 @@ Must go in this order!!
         - bias_setup: dictionairy of values which will be used to change the defalt bias settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
         - digital_mask: text data of 1s and 0s in a 35x35 grid (newline seperated rows) specifying what pixels are on and off. If not specified chip will be in analog mode
 3. initializing voltages
-    - call `astro.init_voltages(slot, vcal, vsupply, vthreshold, [optional] dacvals)`
+    - call `astro.init_voltages([none required] slot, vcal, vsupply, vthreshold, [optional] dacvals)`
     - slot: Usually 4, tells chip where the board is
     - vcal: calibrated voltage. Usually 0.989
     - vsupply: voltage to gecco board, usually 2.7
@@ -123,3 +123,31 @@ astro.get_readout() --> bytearray. Gets bytestream from the chip
 astro.decode_readout(readout, [opt] printer) --> list of dictionairies. printer prints the decoded values to terminal
 
 astro.start_injection() and astro.stop_injection() are self explainatory
+
+## Usage of beam_test.py
+
+beam_test.py is a rewritten version of beam_test.py which removes the need for asic.py, and moves most configuration to command arguments.
+It has the ability to:
+- Save csv files
+- Plot hits in real time
+- Configure threshold and injection voltages 
+- Enable digital output based on pixel masks 
+
+Options:
+| Argument | Usage | Purpose | Default |
+| :--- | :--- | :---  | :--- |
+| `-n` `--name` | `-n [SOMESTRING]` | Set additional name to be added to the timestamp in file outputs | None |
+| `-o` `--outdir`| `-o [DIRECTORY]` | Directory to save all output files to. Will be created if it doesn't exist. | `./` |
+| `-m` `--mask` | `-m [PATH]`       | Enable a masked digital output. Takes a path to a text file specifying which pixels are enabled. If not specified will default to (0,0). | None|
+| `-c` `--saveascsv` | `-c`         | Toggle saving csv files on and off | Does not save |
+| `-s` `--showhits` | `-s`          | Display hits in real time | Off |
+| `-p` `--plotsave` | `-p`          | Saves real time plots as image files. Stored in outdir. | Does not save plots |
+| `-t` `--threshold`| `-t [VOLTAGE]`| Sets digital threshold voltage in mV. | 100mV |
+| `-i` `--inject`| `-i`             | Toggles injection on or off. Injects 300mV unless specified. | Off|
+| `-M` `--maxruns` | `-M [int]`     | Sets the maximum number of readouts the code will process before exiting. | No maximum |
+| `-E` `--errormax`| `-E [int]`     | Amount of index errors encountered in the decode before the program terminates. | 0 |
+| `-v` `--vinj` | `-v [VOLTAGE]`    | Sets voltage of injection in mV. Does not enable injection. | 300mV |
+| `-L` `--loglevel` | `-L [D,I,E,W,C]`| Loglevel to be stored. Applies to both console and file. Options: D - debug, I - info, E - error, W - warning, C - critical | I |
+| `--timeit` | `--timeit`           | Measures the time it took to decode and store a hitstream. | Off |
+
+

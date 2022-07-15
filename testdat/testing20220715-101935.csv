@@ -1,3 +1,0 @@
-,readout,Chip ID,payload,location,rowcol,timestamp,tot_msb,tot_lsb,tot_total,tot_us,hit_bits,hittime
-0,27,0,4,0,0,154,1,228,484,4.84,b'04009a01e4',1657894804.5873694
-1,27,0,4,0,1,154,1,141,397,3.97,b'04809a018d',1657894804.5878274

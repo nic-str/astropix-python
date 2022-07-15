@@ -412,7 +412,7 @@ class astropix2:
                 'Chip ID': id,
                 'payload': payload,
                 'location': location,
-                'rowcol': (1 if col else 0),
+                'isCol': (True if col else False),
                 'timestamp': timestamp,
                 'tot_msb': tot_msb,
                 'tot_lsb': tot_lsb,

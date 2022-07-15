@@ -7,7 +7,6 @@ Created on Tue Dec 28 19:03:40 2021
 """
 
 import logging
-import datetime
 
 # This sets the logger name.
 # logname = "./runlogs/AstropixRunlog_" + datetime.datetime.strftime("%Y%m%d-%H%M%S") + ".log"
@@ -20,5 +19,5 @@ logging.basicConfig(filename=logname,
                     level=logging.DEBUG)
 """
 
-
+#formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)

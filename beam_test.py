@@ -8,6 +8,7 @@ Author: Autumn Bauman
 #from http.client import SWITCHING_PROTOCOLS
 from astropix import astropix2
 import modules.hitplotter as hitplotter
+import os
 import binascii
 import pandas as pd
 import numpy as np
@@ -19,6 +20,9 @@ from modules.setup_logger import logger
 
 
 # This sets the logger name.
+logdir = "./runlogs/"
+if os.path.exists(logdir) == False:
+    os.mkdir(logdir)
 logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
 
 
@@ -29,7 +33,7 @@ decode_fail_frame = pd.DataFrame({
                 'Chip ID': np.nan,
                 'payload': np.nan,
                 'location': np.nan,
-                'rowcol': np.nan,
+                'isCol': np.nan,
                 'timestamp': np.nan,
                 'tot_msb': np.nan,
                 'tot_lsb': np.nan,
@@ -50,6 +54,9 @@ def main(args):
         masked = True
         with open(args.mask, 'r') as file:
             bitmask = file.read()
+    # Ensures output directory exists
+    if os.path.exists(args.outdir) == False:
+        os.mkdir(args.outdir)
 
     # Prepare everything, create the object
     astro = astropix2(inject=args.inject)
@@ -84,24 +91,24 @@ def main(args):
                 'Chip ID',
                 'payload',
                 'location',
-                'rowcol',
+                'isCol',
                 'timestamp',
                 'tot_msb',
                 'tot_lsb',
                 'tot_total',
                 'tot_us',
                 'hittime'
-        ], index = [0])
+        ])
 
     # And here for the text files/logs
-    logpath = args.outdir + '/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.log'
+    bitpath = args.outdir + '/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
-    logfile = open(logpath,'w')
+    bitfile = open(bitpath,'w')
     # Writes all the config information to the file
-    logfile.write(astro.get_log_header())
+    bitfile.write(astro.get_log_header())
 
     # Enables the hitplotter and uses logic on whether or not to save the images
-    if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=args.outdir if args.plotsave else None)
+    if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
 
@@ -119,7 +126,7 @@ def main(args):
 
                 readout = astro.get_readout() # Gets the bytearray from the chip
                 # Writes the hex version to hits
-                logfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
+                bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 print(binascii.hexlify(readout))
 
                 # Added fault tolerance for decoding, the limits of which are set through arguments
@@ -156,9 +163,9 @@ def main(args):
                             rows,columns=[],[]
                             #Isolate row and column information from array returned from decoder
                             location = hits.location.to_numpy()
-                            rowOrCol = hits.rowcol.to_numpy()
-                            rows = location[rowOrCol==0]
-                            columns = location[rowOrCol==1]
+                            rowOrCol = hits.isCol.to_numpy()
+                            rows = location[rowOrCol==False]
+                            columns = location[rowOrCol==True]
                             plotter.plot_event( rows, columns, i)
 
                     # If we are logging runtime, this does it!
@@ -177,9 +184,10 @@ def main(args):
         logger.exception(f"Encountered Unexpected Exception! \n{e}")
     finally:
         if args.saveascsv: 
+            csvframe.index.name = "dec_order"
             csvframe.to_csv(csvpath) 
         if args.inject: astro.stop_injection()   
-        logfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
+        bitfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
         astro.close_connection() # Closes SPI
         logger.info("Program terminated")
     # END OF PROGRAM
@@ -252,13 +260,17 @@ if __name__ == "__main__":
     elif ll == 'C':
         loglevel = logging.CRITICAL
     
-    # Loglevel 
-    logging.basicConfig(filename=logname,
-                    filemode='w',
-                    format='%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s',
-                    datefmt='%H:%M:%S',
-                    level= loglevel)
-    logging.getLogger().addHandler(logging.StreamHandler())
+    # Logging stuff!
+    # This was way harder than I expected...
+    formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
+    fh = logging.FileHandler(logname)
+    fh.setFormatter(formatter)
+    sh = logging.StreamHandler()
+    sh.setFormatter(formatter)
+
+    logging.getLogger().addHandler(sh) 
+    logging.getLogger().addHandler(fh)
+    logging.getLogger().setLevel(logging.DEBUG)
 
     logger = logging.getLogger(__name__)
 
