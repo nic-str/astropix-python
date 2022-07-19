@@ -1,6 +1,11 @@
 """
 Code to run power supply bias voltage scanning with a source. This will not be near as robust as the beam_test.py
 but since it is just for my use (for now) I think it will do. 
+
+
+Keithley_IP = "169.254.127.39"
+BiasHV = -60.0 #in Volt
+maxCurrent = 0.001 #in Ampere
 """
 
 from astropix import astropix2
@@ -10,43 +15,48 @@ import logging
 import binascii
 import time 
 import os
-#import [CONTROL PKG] as RC
+from modules.pyKeithleyCtl import KeithleySupply as RC
 from modules.setup_logger import logger
 
 
-datadir = "biasscan_source"
+datadir = "biasscan_weekend_7-15"
 psudir = "ps"
 digitdir = "digital"
 
-vmin = -5
-vmax = -135
+vmin = -10
+vmax = -130
 vstep = -10
 
-testlen = 60
+testlen = 6 * 60 * 60
 
-psu_ip = ''
+stable_time = 5 * 60
 
-maxlen = 4 * 60 * 60
+Keithley_IP = "169.254.127.39"
+BiasHV = -60.0 #in Volt
+maxCurrent = 0.001 #in Ampere
+
+
+maxlen = 10 * 60 * 60
 
 
 pspath = datadir + '/' + psudir
 csvpath = datadir + '/' + digitdir
 
-basecrrnt = f"/bias_scan_{vmin}_{vmax}_{vstep}_Source_Ba-133_CURRENTS" + time.strftime("%Y%m%d-%H%M%S")
-basedigit = f"/bias_scan_{vmin}_{vmax}_{vstep}_Source_Ba-133_DIGITAL" + time.strftime("%Y%m%d-%H%M%S")
-basebits = f"/bias_scan_{vmin}_{vmax}_{vstep}_Source_Ba-133_BITSTREAMS" + time.strftime("%Y%m%d-%H%M%S")
+basecrrnt = pspath + f"/bias_scan_{vmin}_{vmax}_{vstep}_Source_Ba-133_CURRENTS" + time.strftime("%Y%m%d-%H%M%S")
+basedigit = csvpath + f"/bias_scan_{vmin}_{vmax}_{vstep}_Source_Ba-133_DIGITAL" + time.strftime("%Y%m%d-%H%M%S")
+basebits = csvpath + f"/bias_scan_{vmin}_{vmax}_{vstep}_Source_Ba-133_BITSTREAMS" + time.strftime("%Y%m%d-%H%M%S")
 
 
 if os.path.exists(pspath) == False:
-    os.mkdir(pspath)
+    os.makedirs(pspath)
 if os.path.exists(csvpath) == False:
-    os.mkdir(csvpath)
+    os.makedirs(csvpath)
 
 # This sets the logger name.
 logdir = "./runlogs/"
 if os.path.exists(logdir) == False:
     os.mkdir(logdir)
-logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
+logname = "./runlogs/AstropixHVScanlog_" +f"{vmin}_{vmax}_{vstep}_"+ time.strftime("%Y%m%d-%H%M%S") + ".log"
 
 decode_fail_frame = pd.DataFrame({
                 'readout': np.nan,
@@ -64,6 +74,13 @@ decode_fail_frame = pd.DataFrame({
 )
 
 
+
+def printVoltages(PS):
+    print("Set voltage:     ", PS.get_voltage(), "V")
+    print("Measured voltage:", PS.measure_voltage(), "V")
+    print("Max current:     ", PS.get_ocp()
+      , "A")
+    print("Measured current:",format((float(PS.measure_current()) * (10**9)), '0.4f'), "nA")
 
 
 def getData(astro:astropix2, PS, runtime, bias, basecrrnt, basedigit, basebits):
@@ -95,6 +112,19 @@ def getData(astro:astropix2, PS, runtime, bias, basecrrnt, basedigit, basebits):
     errors = 0
     maxerrors = 10
     try:
+
+        PS.enable_output()
+        # Time to stabilize
+        logger.info("HV Output on")
+
+        logger.info("set voltage, waiting 5 min")
+        time.sleep(stable_time)
+
+        PS.start_measurement(maxlen)    # Turns on HV and starts taking data
+
+
+        logger.info("HV Logging Start")
+        i = 0
         while (time.time() <= maxtime) and (errors <= maxerrors):
 
             if astro.hits_present(): # Checks if hits are present
@@ -123,39 +153,75 @@ def getData(astro:astropix2, PS, runtime, bias, basecrrnt, basedigit, basebits):
                         returnval = 10
                 finally:
                         i += 1
-                        errors += 1
                         csvframe = pd.concat([csvframe, hits])
+
+
     except KeyboardInterrupt:
         logger.info("Recieved Interrupt. Terminating program...")
+        returnval = 20
     finally:
-        csvframe.index.name = "dec_order"
-        csvframe.to_csv(csvpath)
-        # NEEDS TO BE FINISHED
-        data, nrows = PS.StopColection()
-        df = PS.to_csv(data, nrows)
+        data, nRow = PS.stop_measurement()
+        PS.disable_output()
+        df = PS.to_csv(data, nRow)
+        df["VOLTAGE"] = bias
         df.to_csv(crrntpth)
+
+        # Writes digital data 
+        csvframe.index.name = "dec_order"
+        csvframe.to_csv(digitpth)
+ 
+
 
     return returnval
 
 
 def main():
-    astro = astropix2()
+    PS = RC(Keithley_IP)
+    PS.clear()
+    PS.reset()
+    PS.set_voltage(-60)
+    PS.set_ocp(maxCurrent)
+    printVoltages(PS)
+
+    # Quick check to make sure it is working
+    if input("Does this look correct? (Y/n)") == "n":
+        PS.disable_output()
+        PS.close()
+
+    astro = astropix2(inject=False)
     astro.asic_init()
     astro.init_voltages()
     astro.init_injection()
     astro.enable_spi() 
     logger.info("Chip configured")
     astro.dump_fpga()
-    try:
-        for bias in range(vmin, vmax, vstep):
+    try: # Main loop.
+        # Encased in try statement to gaurd against errors
+        for bias in range(vmin, vmax + vstep, vstep):
+            PS.set_voltage(bias) # sets the bias
+            time.sleep(1)
+            logger.info(f"HV supply voltage set:{bias}V")
+            # Runs the data gathering
             cont = getData(astro, PS, testlen, bias, basecrrnt, basedigit, basebits)
+            # checks to make sure it didn't fail
             if cont == 10:
                 raise RuntimeError("Maximum errors exceded!")
+            if cont == 20:
+                raise KeyboardInterrupt
+            # Loops again 
+        
     except KeyboardInterrupt:
         logger.info("Keyboard interup. Terminating...")
 
     except Exception as e:
         logger.exception(f"e")
+        
+
+    finally: 
+        PS.disable_output()
+        PS.close()
+        astro.close_connection()
+
 
 
 
@@ -168,7 +234,7 @@ if __name__ == "__main__":
 
     logging.getLogger().addHandler(sh) 
     logging.getLogger().addHandler(fh)
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
 
     logger = logging.getLogger(__name__)
 
