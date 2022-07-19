@@ -33,9 +33,9 @@ class Decode:
         return data
 
     def find_idle_bytes_pos(self, readout: bytearray,
-            start_seq: bytearray = b'(\x3d{1,})[\0-\x0F]', #b'(\x3d*)',
-            idle_seq: bytearray = b'(\x3d{1,})[\0-\x0F]',
-            end_seq: bytearray = b'(\x3d{1,})') -> list:
+            start_seq: bytearray = b'(\x3d{2,})[\0-\x0F]', #b'(\x3d*)',
+            idle_seq: bytearray = b'(\x3d{2,})[\0-\x0F]',
+            end_seq: bytearray = b'(\x3d{2,})') -> list:
         """
             Find idle Bytes
 
