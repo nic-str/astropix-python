@@ -1,157 +1,280 @@
-# -*- coding: utf-8 -*-
-""""""
 """
-Created on Sat Jun 26 00:10:56 2021
+Updated version of beam_test.py using the astropix.py module
 
-@author: Nicolas Striebig
+Author: Autumn Bauman 
 """
 
-from modules.asic import Asic
-from modules.injectionboard import Injectionboard
-from modules.nexysio import Nexysio
-from modules.voltageboard import Voltageboard
-from modules.decode import Decode
-
-from utils.utils import wait_progress
-
-import binascii
-
+#from msilib.schema import File
+#from http.client import SWITCHING_PROTOCOLS
+from astropix import astropix2
+import modules.hitplotter as hitplotter
 import os
+import binascii
+import pandas as pd
+import numpy as np
 import time
+import logging
+import argparse
 
-def main():
+from modules.setup_logger import logger
 
-    nexys = Nexysio()
 
-    # Open FTDI Device with Index 0
-    #handle = nexys.open(0)
-    handle = nexys.autoopen()
+# This sets the logger name.
+logdir = "./runlogs/"
+if os.path.exists(logdir) == False:
+    os.mkdir(logdir)
+logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
 
-    # Write and read directly to register
-    # Example: Write 0x55 to register 0x09 and read it back
-    nexys.write_register(0x09, 0x55, True)
-    nexys.read_register(0x09)
 
-    nexys.spi_reset()
-    nexys.sr_readback_reset()
 
-    #
-    # Configure ASIC
-    #
+# This is the dataframe which is written to the csv if the decoding fails
+decode_fail_frame = pd.DataFrame({
+                'readout': np.nan,
+                'Chip ID': np.nan,
+                'payload': np.nan,
+                'location': np.nan,
+                'isCol': np.nan,
+                'timestamp': np.nan,
+                'tot_msb': np.nan,
+                'tot_lsb': np.nan,
+                'tot_total': np.nan,
+                'tot_us': np.nan,
+                'hittime': np.nan
+                }, index=[0]
+)
 
-    # Write to asicSR
-    asic = Asic(handle)
-    asic.update_asic()
+  
 
-    # Example: Update Config Bit
-    # asic.digitalconfig['En_Inj17'] = 1
-    # asic.dacs['vn1'] = 63
-    # asic.update_asic()
+#Init stuffs
+def main(args):
 
-    #
-    # Configure Voltageboard
-    #
+    # Used for creating the mask
+    masked = False
+    if args.mask is not None:
+        masked = True
+        with open(args.mask, 'r') as file:
+            bitmask = file.read()
+    # Ensures output directory exists
+    if os.path.exists(args.outdir) == False:
+        os.mkdir(args.outdir)
 
-    # Configure 8 DAC Voltageboard in Slot 4 with list values
-    # 3 = Vcasc2, 4=BL, 7=Vminuspix, 8=Thpix
-    vboard1 = Voltageboard(handle, 4, (8, [0, 0, 1.1, 1, 0, 0, 1, 1.1]))
+    # Prepare everything, create the object
+    astro = astropix2(inject=args.inject)
 
-    # Set measured 1V for one-point calibration
-    vboard1.vcal = 0.989
-    vboard1.vsupply = 3.3
+    # Passes mask if specified, else it creates an analog mask of (0,0)
+    if masked: 
+        astro.asic_init(digital_mask=bitmask)
+    else: 
+        astro.asic_init()
 
-    # Update voltageboards
-    vboard1.update_vb()
+    astro.init_voltages(vthreshold=args.threshold)
+    # If injection is on initalize the board
+    if args.inject:
+        astro.init_injection(inj_voltage=args.vinj)
+    astro.enable_spi() 
+    logger.info("Chip configured")
+    astro.dump_fpga()
 
-    # Write only first 3 DACs, other DACs will be 0
-    # vboard1.dacvalues = (8, [1.2, 1, 1])
-    # vboard1.update_vb()
+    if args.inject:
+        astro.start_injection()
 
-    #
-    # Configure Injectionboard
-    #
 
-    # Set Injection level
-    injvoltage = Voltageboard(handle, 3, (2, [0.4, 0.0]))
-    injvoltage.vcal = vboard1.vcal
-    injvoltage.vsupply = vboard1.vsupply
-    injvoltage.update_vb()
+    max_errors = args.errormax
+    i = 0
+    errors = 0 # Sets the threshold 
 
-    inj = Injectionboard(handle)
+    # Prepares the file paths 
+    if args.saveascsv: # Here for csv
+        csvpath = args.outdir +'/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvframe =pd.DataFrame(columns = [
+                'readout',
+                'Chip ID',
+                'payload',
+                'location',
+                'isCol',
+                'timestamp',
+                'tot_msb',
+                'tot_lsb',
+                'tot_total',
+                'tot_us',
+                'hittime'
+        ])
 
-    # Set Injection Params for 330MHz patgen clock
-    inj.period = 100
-    inj.clkdiv = 400
-    inj.initdelay = 10000
-    inj.cycle = 0
-    inj.pulsesperset = 1
+    # And here for the text files/logs
+    bitpath = args.outdir + '/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.log'
+    # textfiles are always saved so we open it up 
+    bitfile = open(bitpath,'w')
+    # Writes all the config information to the file
+    bitfile.write(astro.get_log_header())
 
-    #
-    # SPI
-    #
+    # Enables the hitplotter and uses logic on whether or not to save the images
+    if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
 
-    # Enable SPI
-    nexys.spi_enable()
-    nexys.spi_reset()
+    try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
+        
+        while errors <= max_errors: # Loop continues 
 
-    # Set SPI clockdivider
-    # freq = 100 MHz/spi_clkdiv
-    nexys.spi_clkdiv = 255
+            # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
+            if args.maxruns is not None:
+                if i >= args.maxruns: break
+            
+            if astro.hits_present(): # Checks if hits are present
+                # We aren't using timeit, just measuring the diffrence in ns
+                if args.timeit: start = time.time_ns()
+    
+                time.sleep(.1) # this is probably not needed, will ask Nicolas
 
-    #asic.dacs['vn1'] = 5
+                readout = astro.get_readout() # Gets the bytearray from the chip
 
-    # Generate bitvector for SPI ASIC config
-    asic_bitvector = asic.gen_asic_vector()
-    spi_data = nexys.asic_spi_vector(asic_bitvector, True, 10)
+                if args.timeit:
+                    print(f"Readout took {(time.time_ns()-start)*10**-9}s")
 
-    # Write Config via spi
-    # nexys.write_spi(spi_data, False, 8191)
+                # Writes the hex version to hits
+                bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
+                print(binascii.hexlify(readout))
 
-    # Send Routing command
-    nexys.send_routing_cmd()
+                # Added fault tolerance for decoding, the limits of which are set through arguments
+                try:
+                    hits = astro.decode_readout(readout, i, printer = True)
 
-    # Reset SPI Read FIFO
+                except IndexError:
+                    errors += 1
+                    logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
+                    # We write out the failed decode dataframe
+                    hits = decode_fail_frame
+                    hits.readout = i
+                    hits.hittime = time.time()
 
-    #inj.start()
-    inj.stop()
+                    # This loggs the end of it all 
+                    if errors > max_errors:
+                        logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
+                finally:
+                    i += 1
 
-    wait_progress(3)
+                    # If we are saving a csv this will write it out. 
+                    if args.saveascsv:
+                        csvframe = pd.concat([csvframe, hits])
 
-    #decode = Decode()
+                    # This handels the hitplotting. Code by Henrike and Amanda
+                    if args.showhits:
+                        # This ensures we aren't plotting NaN values. I don't know if this would break or not but better 
+                        # safe than sorry
+                        if pd.isnull(hits.tot_msb.loc(0)):
+                            pass
+                        elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
+                            rows,columns=[],[]
+                            #Isolate row and column information from array returned from decoder
+                            location = hits.location.to_numpy()
+                            rowOrCol = hits.isCol.to_numpy()
+                            rows = location[rowOrCol==False]
+                            columns = location[rowOrCol==True]
+                            plotter.plot_event( rows, columns, i)
+
+                    # If we are logging runtime, this does it!
+                    if args.timeit:
+                        print(f"Read and decode took {(time.time_ns()-start)*10**-9}s")
+
+            # If no hits are present this waits for some to accumulate
+            else: time.sleep(.001)
+
+
+    # Ends program cleanly when a keyboard interupt is sent.
+    except KeyboardInterrupt:
+        logger.info("Keyboard interupt. Program halt!")
+    # Catches other exceptions
+    except Exception as e:
+        logger.exception(f"Encountered Unexpected Exception! \n{e}")
+    finally:
+        if args.saveascsv: 
+            csvframe.index.name = "dec_order"
+            csvframe.to_csv(csvpath) 
+        if args.inject: astro.stop_injection()   
+        bitfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
+        astro.close_connection() # Closes SPI
+        logger.info("Program terminated successfully")
+    # END OF PROGRAM
+
 
     
-    """ i = 0
-    while os.path.exists("log/sample%s.log" % i):
-        i += 1
-
-    file = open("log/sample%s.log" % i, "w") """
-    timestr = time.strftime("beam_%Y%m%d-%H%M%S")
-    file = open("log/%s.log" % timestr, "w")
-    file.write(f"Voltageboard settings: {vboard1.dacvalues}\n")
-    file.write(f"Digital: {asic.digitalconfig}\n")
-    file.write(f"Biasblock: {asic.biasconfig}\n")
-    file.write(f"DAC: {asic.dacs}\n")
-    file.write(f"Receiver: {asic.recconfig}\n")
-
-    readout = bytearray()
-
-    while True:
-        print("Reg: {}", int.from_bytes(nexys.read_register(70),"big"))
-        if(int.from_bytes(nexys.read_register(70),"big") == 0):
-            time.sleep(0.1)
-            nexys.write_spi_bytes(20)
-            readout = nexys.read_spi_fifo()
-            file.write(str(binascii.hexlify(readout)))
-
-            print(binascii.hexlify(readout))
-
-            #decode.decode_astropix2_hits(decode.hits_from_readoutstream(readout))
-
-    # inj.stop()
-
-    # Close connection
-    nexys.close()
-
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description='Astropix Driver Code')
+    parser.add_argument('-n', '--name', default='', required=False,
+                    help='Option to give additional name to output files upon running')
+
+    parser.add_argument('-o', '--outdir', default='.', required=False,
+                    help='Output Directory for all datafiles')
+
+    parser.add_argument('-s', '--showhits', action='store_true',
+                    default=False, required=False,
+                    help='Display hits in real time during data taking')
+    
+    parser.add_argument('-p', '--plotsave', action='store_true', default=False, required=False,
+                    help='Save plots as image files. If set, will be saved in  same dir as data. DEFAULT FALSE')
+    
+    parser.add_argument('-c', '--saveascsv', action='store_true', 
+                    default=False, required=False, 
+                    help='save output files as CSV. If False, save as txt')
+    
+    parser.add_argument('-i', '--inject', action='store_true',default=False,
+                    help =  'Toggle injection on and off. DEFAULT: OFF')
+
+    parser.add_argument('-v','--vinj', action='store', default = None, type=float,
+                    help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
+
+    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
+                    help = 'filepath to digital mask. Required to enable pixels not (0,0)')
+
+    parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
+                    help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
+    
+    parser.add_argument('-E', '--errormax', action='store', type=int, default='0', 
+                    help='Maximum index errors allowed during decoding. DEFAULT 0')
+
+    parser.add_argument('-M', '--maxruns', type=int, action='store', default=None,
+                    help = 'Maximum number of readouts')
+
+    parser.add_argument('--timeit', action="store_true", default=False,
+                    help='Prints runtime from seeing a hit to finishing the decode to terminal')
+
+    parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
+                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: D')
+    """
+    parser.add_argument('--ludicrous-speed', type=bool, action='store_true', default=False,
+                    help="Fastest possible data collection. No decode, no output, no file.\
+                         Saves bitstreams in memory until keyboard interupt or other error and then writes them to file.\
+                             Use is not generally recommended")
+    """
+    parser.add_argument
+    args = parser.parse_args()
+
+    # Sets the loglevel
+    ll = args.loglevel
+    if ll == 'D':
+        loglevel = logging.DEBUG
+    elif ll == 'I':
+        loglevel = logging.INFO
+    elif ll == 'E':
+        loglevel = logging.ERROR
+    elif ll == 'W':
+        loglevel = logging.WARNING
+    elif ll == 'C':
+        loglevel = logging.CRITICAL
+    
+    # Logging stuff!
+    # This was way harder than I expected...
+    formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
+    fh = logging.FileHandler(logname)
+    fh.setFormatter(formatter)
+    sh = logging.StreamHandler()
+    sh.setFormatter(formatter)
+
+    logging.getLogger().addHandler(sh) 
+    logging.getLogger().addHandler(fh)
+    logging.getLogger().setLevel(loglevel)
+
+    logger = logging.getLogger(__name__)
+
+    
+    main(args)

@@ -11,6 +11,7 @@ import sys
 
 import logging
 import binascii
+import time
 
 from modules.spi import Spi
 from modules.setup_logger import logger
@@ -333,3 +334,21 @@ class Nexysio(Spi):
 
         # concatenate header+data
         return b''.join([header, data])
+
+
+        
+    def get_configregister(self):
+        return int.from_bytes(self.read_register(0), 'big')
+    def chip_reset(self) -> None:
+        """
+        Reset SPI
+        Set res_n to 0 for 1s
+        res_n is connected to FTDI Reg0: Bit: 4
+        """
+        # Set Reset bits 1
+        configregister = self.set_bit(self.get_configregister(), 4)
+        self.write_register(0, configregister, True)
+        time.sleep(1)
+        # Set Reset bits and readback bit 0
+        configregister = self.clear_bit(self.get_configregister(), 4)
+        self.write_register(0, configregister, True)
