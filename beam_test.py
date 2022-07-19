@@ -121,10 +121,14 @@ def main(args):
             if astro.hits_present(): # Checks if hits are present
                 # We aren't using timeit, just measuring the diffrence in ns
                 if args.timeit: start = time.time_ns()
-
+    
                 time.sleep(.1) # this is probably not needed, will ask Nicolas
 
                 readout = astro.get_readout() # Gets the bytearray from the chip
+
+                if args.timeit:
+                    print(f"Readout took {(time.time_ns()-start)*10**-9}s")
+
                 # Writes the hex version to hits
                 bitfile.write(f"{i}\t{str(binascii.hexlify(readout))}\n")
                 print(binascii.hexlify(readout))
