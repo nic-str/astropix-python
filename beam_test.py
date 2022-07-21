@@ -122,9 +122,9 @@ def main(args):
                 # We aren't using timeit, just measuring the diffrence in ns
                 if args.timeit: start = time.time_ns()
     
-                time.sleep(.1) # this is probably not needed, will ask Nicolas
+                time.sleep(.001) # this is probably not needed, will ask Nicolas
 
-                readout = astro.get_readout() # Gets the bytearray from the chip
+                readout = astro.get_readout(3) # Gets the bytearray from the chip
 
                 if args.timeit:
                     print(f"Readout took {(time.time_ns()-start)*10**-9}s")
