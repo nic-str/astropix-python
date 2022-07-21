@@ -63,19 +63,19 @@ def main(args):
 
     # Passes mask if specified, else it creates an analog mask of (0,0)
     if masked: 
-        astro.asic_init(digital_mask=bitmask)
+        astro.asic_init(digital_mask=bitmask, analog_col = args.analog)
     else: 
         astro.asic_init()
 
     astro.init_voltages(vthreshold=args.threshold)
     # If injection is on initalize the board
-    if args.inject:
+    if args.inject is not None:
         astro.init_injection(inj_voltage=args.vinj)
     astro.enable_spi() 
     logger.info("Chip configured")
     astro.dump_fpga()
 
-    if args.inject:
+    if args.inject is not None:
         astro.start_injection()
 
 
@@ -106,6 +106,8 @@ def main(args):
     bitfile = open(bitpath,'w')
     # Writes all the config information to the file
     bitfile.write(astro.get_log_header())
+    bitfile.write(str(args))
+    bitfile.write("\n")
 
     # Enables the hitplotter and uses logic on whether or not to save the images
     if args.showhits: plotter = hitplotter.HitPlotter(35, outdir=(args.outdir if args.plotsave else None))
@@ -217,14 +219,17 @@ if __name__ == "__main__":
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt')
     
-    parser.add_argument('-i', '--inject', action='store_true',default=False,
-                    help =  'Toggle injection on and off. DEFAULT: OFF')
+    parser.add_argument('-i', '--inject', action='store', default=None, type=int,
+                    help =  'Turn on injection in the given column. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
 
-    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
-                    help = 'filepath to digital mask. Required to enable pixels not (0,0)')
+    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = "./masks/mask_row0_col0.txt",
+                    help = 'filepath to digital mask to enable digital readout. Default: No digital readout (all pixels off)')
+
+    parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
+                    help = 'Turn on analog output in the given column. Default: Column 0. Set to None to turn off analog output.')
 
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')

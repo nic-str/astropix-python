@@ -68,7 +68,7 @@ class astropix2:
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
-    def __init__(self, clock_period_ns = 10, inject:bool = False):
+    def __init__(self, clock_period_ns = 10, inject:int = None):
         """
         Initalizes astropix object. 
         No required arguments
@@ -92,7 +92,7 @@ class astropix2:
         logger.info("FPGA test successful.")
         # Start putting the variables in for use down the line
         self.sampleclock_period_ns = clock_period_ns
-        self.inject = inject
+        self.injection_col = inject
         # Creates objects used later on
         self.decode = Decode(clock_period_ns)
         
@@ -101,7 +101,7 @@ class astropix2:
 
     # Method to initalize the asic. This is taking the place of asic.py. 
     # All of the interfacing is handeled through asic_update
-    def asic_init(self, dac_setup: dict = None, bias_setup:dict = None, digital_mask:str = None):
+    def asic_init(self, dac_setup: dict = None, bias_setup:dict = None, digital_mask:str = None, analog_col:int = None):
         """
         self.asic_init() - initalize the asic configuration. Must be called first
         Positional arguments: None
@@ -124,8 +124,8 @@ class astropix2:
             self.bias_setup.update(bias_setup)
 
         if digital_mask is not None:
-            self._make_digital_mask(digital_mask)
-        else: self._make_analog_mask()
+            self._make_digital_mask(digital_mask,analog_col)
+        #else: self._make_analog_mask()
         
         self._make_digitalconfig()
         #self._make_digital_mask()
@@ -151,7 +151,7 @@ class astropix2:
 
     # Methods to update the internal variables. Please don't do it manually
     # This updates the dac config
-    def update_asic_config(self, bias_cfg:dict = None, dac_cfg:dict = None, maskstr:str = None):
+    def update_asic_config(self, bias_cfg:dict = None, dac_cfg:dict = None, maskstr:str = None, analog_col:int=None):
         """
         Updates and writes confgbits to asic
 
@@ -164,7 +164,7 @@ class astropix2:
             if dac_cfg is not None:
                 self.dac_setup.update(dac_cfg)
             if maskstr is not None:
-                self._make_digital_mask(maskstr)
+                self._make_digital_mask(maskstr, analog_col)
             else: 
                 logger.info("update_asic_config() got no argumennts, nothing to do.")
                 return None
@@ -270,7 +270,7 @@ class astropix2:
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
         # Default configuration for the dac
-        # 0.4 is injection voltage
+        # 0.3 is injection voltage
         # 2 is slot number for inj board
         default_injdac = (2, [0.3, 0.0])
         # Some fault tolerance
@@ -291,7 +291,7 @@ class astropix2:
             if inj_voltage < 0:
                 raise ValueError("Cannot inject a negative voltage!")
             elif inj_voltage > 1800:
-                logger.warning("Cannot inject more than 1800mV!")
+                logger.warning("Cannot inject more than 1800mV, will use defaults")
             else:
                 #Convert from mV to V
                 inj_voltage = inj_voltage / 1000
@@ -479,20 +479,20 @@ class astropix2:
     # Function to construct the reconfig dictionairy. This code is taken from 
     # asic.py. 
     # This simply sets it up for an analog run 
-    def _make_analog_mask(self):
-        if self.inject:
-            bitconfig_col =  0b111_11111_11111_11111_11111_11111_11111_11101 #for injection
-        else:
-            bitconfig_col =  0b111_11111_11111_11111_11111_11111_11111_11100 #for noise
-        self.recconfig = {'ColConfig0': bitconfig_col}
-        i = 1
-        while i < 35:
-            self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
-            i += 1
+    #def _make_analog_mask(self):
+    #    if self.inject:
+    #        bitconfig_col =  0b111_11111_11111_11111_11111_11111_11111_11101 #for injection
+    #    else:
+    #        bitconfig_col =  0b111_11111_11111_11111_11111_11111_11111_11100 #for noise
+    #    self.recconfig = {'ColConfig0': bitconfig_col}
+    #    i = 1
+    #    while i < 35:
+    #        self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
+    #        i += 1
 
     # used for digital working with the sensor.
 
-    def _make_digital_mask(self, digitmask:str):
+    def _make_digital_mask(self, digitmask:str, analog_col=None):
         # Cleans up the string, ensures it is only 1, 0, or \n
         bitmask = re.sub("[^01\n]", "", digitmask)
         # turn it into a list
@@ -504,17 +504,20 @@ class astropix2:
         self.recconfig = {}
         # used in construction
         i = 0
-        # itterates through the list and does binairy magic on it
+        # iterates through the list and does binary magic on it
         for bits in bitlist:
-            # This works by adding entries to a dictionairy and then:
+            # This works by adding entries to a dictionary and then:
             # 1) creating a 35 bit space of zeros
-            # 2) converting the string to a binairy integer
+            # 2) converting the string to a binary integer
             # 3) shifting by one to make room for injection on/off bit
-            # 4) setting the injection bit if we want injection on this run 
-
-            self.recconfig[f"ColConfig{i}"] = (((0b00 << 35) + int(bits, 2)) << 1) + (0b1 if self.inject == True else 0)
+            # 4) setting the injection bit if we want injection on this run
+            # Bit 1: Analog output
+            # Bit 2: Injection
+            # last : Injection
+            analog_bit = 0b1 if (i == analog_col) else 0
+            injection_bit = 0b1 if (i == self.injection_col) else 0
+            self.recconfig[f"ColConfig{i}"] = (analog_bit << 37) + (injection_bit << 36) + (int(bits, 2) << 1) + injection_bit
             i += 1
-        
 
 
 
