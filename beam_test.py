@@ -82,6 +82,8 @@ def main(args):
     max_errors = args.errormax
     i = 0
     errors = 0 # Sets the threshold 
+    if args.maxtime is not None: 
+        end_time=time.time()+(args.maxtime*60.)
     fname="" if not args.name else args.name+"_"
 
     # Prepares the file paths 
@@ -120,6 +122,8 @@ def main(args):
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
             if args.maxruns is not None:
                 if i >= args.maxruns: break
+            if args.maxtime is not None:
+                if time.time() >= end_time: break
             
             
             if astro.hits_present(): # Checks if hits are present
@@ -239,8 +243,11 @@ if __name__ == "__main__":
     parser.add_argument('-E', '--errormax', action='store', type=int, default='0', 
                     help='Maximum index errors allowed during decoding. DEFAULT 0')
 
-    parser.add_argument('-M', '--maxruns', type=int, action='store', default=None,
+    parser.add_argument('-r', '--maxruns', type=int, action='store', default=None,
                     help = 'Maximum number of readouts')
+
+    parser.add_argument('-M', '--maxtime', type=float, action='store', default=None,
+                    help = 'Maximum run time (in minutes)')
 
     parser.add_argument('--timeit', action="store_true", default=False,
                     help='Prints runtime from seeing a hit to finishing the decode to terminal')
