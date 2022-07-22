@@ -82,10 +82,11 @@ def main(args):
     max_errors = args.errormax
     i = 0
     errors = 0 # Sets the threshold 
+    fname="" if not args.name else args.name+"_"
 
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
-        csvpath = args.outdir +'/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+        csvpath = args.outdir +'/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.csv'
         csvframe =pd.DataFrame(columns = [
                 'readout',
                 'Chip ID',
@@ -101,7 +102,7 @@ def main(args):
         ])
 
     # And here for the text files/logs
-    bitpath = args.outdir + '/' + args.name + time.strftime("%Y%m%d-%H%M%S") + '.log'
+    bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
     bitfile = open(bitpath,'w')
     # Writes all the config information to the file
@@ -119,6 +120,7 @@ def main(args):
             # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
             if args.maxruns is not None:
                 if i >= args.maxruns: break
+            
             
             if astro.hits_present(): # Checks if hits are present
                 # We aren't using timeit, just measuring the diffrence in ns
