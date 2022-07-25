@@ -240,8 +240,8 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
     
-    parser.add_argument('-E', '--errormax', action='store', type=int, default='0', 
-                    help='Maximum index errors allowed during decoding. DEFAULT 0')
+    parser.add_argument('-E', '--errormax', action='store', type=int, default='100', 
+                    help='Maximum index errors allowed during decoding. DEFAULT 100')
 
     parser.add_argument('-r', '--maxruns', type=int, action='store', default=None,
                     help = 'Maximum number of readouts')
