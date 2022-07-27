@@ -125,7 +125,6 @@ class astropix2:
 
         if digital_mask is not None:
             self._make_digital_mask(digital_mask,analog_col)
-        #else: self._make_analog_mask()
         
         self._make_digitalconfig()
         #self._make_digital_mask()
@@ -144,6 +143,7 @@ class astropix2:
         Takes no input and does not return
         """
 
+        self.nexys.chip_reset()
         asicbits = self.nexys.gen_asic_pattern(self._construct_asic_vector(), True)
         self.nexys.write(asicbits)
         logger.info("Wrote configbits successfully")
@@ -218,9 +218,11 @@ class astropix2:
         
         # used to ensure this has been called in the right order:
         self._voltages_exist = True
+
         # Set dacvals
         if dacvals is None:
             dacvals = default_vdac
+
             # dacvals takes precidence over vthreshold
             if vthreshold is not None:
                 # Turns from mV to V with the 1V offset normally present
@@ -476,17 +478,6 @@ class astropix2:
 
     # Function to construct the reconfig dictionairy. This code is taken from 
     # asic.py. 
-    # This simply sets it up for an analog run 
-    #def _make_analog_mask(self):
-    #    if self.inject:
-    #        bitconfig_col =  0b111_11111_11111_11111_11111_11111_11111_11101 #for injection
-    #    else:
-    #        bitconfig_col =  0b111_11111_11111_11111_11111_11111_11111_11100 #for noise
-    #    self.recconfig = {'ColConfig0': bitconfig_col}
-    #    i = 1
-    #    while i < 35:
-    #        self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
-    #        i += 1
 
     # used for digital working with the sensor.
 
