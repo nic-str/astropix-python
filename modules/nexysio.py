@@ -8,6 +8,7 @@ Created on Fri Jun 25 16:10:45 2021
 """
 import ftd2xx as ftd
 import sys
+import time
 
 import logging
 import binascii
