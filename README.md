@@ -143,7 +143,7 @@ Options:
 | `-s` `--showhits` | `-s`          | Display hits in real time | Off |
 | `-p` `--plotsave` | `-p`          | Saves real time plots as image files. Stored in outdir. | Does not save plots |
 | `-t` `--threshold`| `-t [VOLTAGE]`| Sets digital threshold voltage in mV. | `100mV` |
-| `-i` `--inject`| `-i` [COL]       | Toggles injection on or off at specified column. Injects 300mV unless specified. | Off|
+| `-i` `--inject`| `-i [COL]`       | Toggles injection on or off at specified column. Injects 300mV unless specified. | Off|
 | `-v` `--vinj` | `-v [VOLTAGE]`    | Sets voltage of injection in mV. Does not enable injection. | `300mV` |
 | `-M` `--maxruns` | `-M [int]`     | Sets the maximum number of readouts the code will process before exiting. | No maximum |
 | `-E` `--errormax`| `-E [int]`     | Amount of index errors encountered in the decode before the program terminates. | `0` |
