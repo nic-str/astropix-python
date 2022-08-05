@@ -240,29 +240,11 @@ class Spi:
         i=0
 
         while not(self.get_spi_config() & 16):
-            readbuffer = self.read_spi(8)
+            readbuffer = self.read_spi(64)
 
             read_stream.extend(readbuffer)
 
-            if (readbuffer == b'\xaf\x2f\x2f\x2f\x2f\x2f\x2f\x2f') | (readbuffer == b'\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f'):
-                idle_bytes += 1
-                idle_bytes_temp += 1
-                logger.debug('Read SPI: IDLE')
-            else:
-                count_hits += 1
-
-                if (idle_bytes_temp > 0):
-                    logger.debug(f'Read SPI: {idle_bytes_temp} IDLE Frames')
-                    idle_bytes_temp = 0
-
-                logger.debug(f'Read SPI: {binascii.hexlify(readbuffer)}')
-
             sleep(0.01)
-
-        if idle_bytes > 0:
-            logger.info(f'Read SPI: {idle_bytes} IDLE Frames')
-
-        logger.info(f'Total {(idle_bytes+count_hits)*8}Bytes: Number of Frames with hits: {count_hits}')
 
         return read_stream
 
