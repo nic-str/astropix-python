@@ -170,12 +170,9 @@ def main(args):
                         if pd.isnull(hits.tot_msb.loc(0)):
                             pass
                         elif len(hits)>0:#safeguard against bad readouts without recorded decodable hits
-                            rows,columns=[],[]
                             #Isolate row and column information from array returned from decoder
-                            location = hits.location.to_numpy()
-                            rowOrCol = hits.isCol.to_numpy()
-                            rows = location[rowOrCol==False]
-                            columns = location[rowOrCol==True]
+                            rows = hits.location[~hits.isCol]
+                            columns = hits.location[hits.isCol]
                             plotter.plot_event( rows, columns, i)
 
                     # If we are logging runtime, this does it!
