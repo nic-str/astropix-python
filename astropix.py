@@ -95,7 +95,10 @@ class astropix2:
         logger.info("FPGA test successful.")
         # Start putting the variables in for use down the line
         self.sampleclock_period_ns = clock_period_ns
-        self.injection_col = inject
+        if inject is None:
+            inject = (None, None)
+        self.injection_col = inject[1]
+        self.injection_row = inject[0]
         # Creates objects used later on
         self.decode = Decode(clock_period_ns)
         
@@ -131,7 +134,7 @@ class astropix2:
         
         # If maskstring is passed it will mask based on that
         if digital_mask is not None:
-            self._mask_from_string(digital_mask, analog_col)
+            self._mask_from_string(digital_mask, None)
         # If blankmask is set it will create a blank mask. Can be updated with 
         # self.enable_pixel() and whatnot
         else:
@@ -139,16 +142,29 @@ class astropix2:
             # Turns on selected analog outputs if not a blank output 
             if blankmask == False:
                 if (analog_col is not None) and (analog_col <= self._num_cols):
+                    logger.info(f"enabling anlalog output in column {analog_col}")
                     self.enable_ampout_col(analog_col)
                     self.enable_pixel(analog_col, )
 
                 else: # Enables pixel 0,0 only
+                    logger.info(f"enabling anlalog output in column 0 (default)")
                     self.enable_ampout_col(0)
                     self.enable_pixel(0,0)
             # Turns on injection if so desired 
             if self.injection_col is not None:
                 self.enable_inj_col(self.injection_col)
         
+        ##analog output
+        if (analog_col is not None) and (analog_col <= self._num_cols):
+            logger.info(f"enabling anlalog output in column {analog_col}")
+            self.enable_ampout_col(analog_col, inplace=False)
+
+        # Turns on injection if so desired 
+        if self.injection_col is not None:
+            self.enable_inj_col(self.injection_col, inplace=False)
+            self.enable_inj_row(self.injection_row, inplace=False)
+
+
         self._make_digitalconfig()
         #self._make_digital_mask()
         # Loads it to the chip
@@ -527,8 +543,9 @@ class astropix2:
             # Bit 2: Injection
             # last : Injection
             analog_bit = 0b1 if (i == analog_col) else 0
-            injection_bit = 0b1 if (i == self.injection_col) else 0
-            self.recconfig[f"ColConfig{i}"] = (analog_bit << 37) + (injection_bit << 36) + (int(bits, 2) << 1) + injection_bit
+            injection_bit_col = 0 if (i == self.injection_col) else 0
+            injection_bit_row = 0 if (i == self.injection_row) else 0
+            self.recconfig[f"ColConfig{i}"] = (analog_bit << 37) + (injection_bit_col << 36) + (int(bits, 2) << 1) + injection_bit_row
             i += 1
 
     def _make_blank_mask(self):
@@ -601,7 +618,7 @@ class astropix2:
        
         for i in range(self.get_num_cols()):
            if not i == col:
-              self.recconfig[f'ColConfig{i}'] = self.recconfig.get(f'ColConfig{col}') & 0b011_11111_11111_11111_11111_11111_11111_11111
+              self.recconfig[f'ColConfig{i}'] = self.recconfig.get(f'ColConfig{i}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b011_11111_11111_11111_11111_11111_11111_11111
         if inplace: self.asic_update()
 
     def enable_pixel(self, col: int, row: int, inplace:bool=True):

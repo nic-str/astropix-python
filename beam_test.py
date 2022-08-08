@@ -225,8 +225,8 @@ if __name__ == "__main__":
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt')
     
-    parser.add_argument('-i', '--inject', action='store', default=None, type=int,
-                    help =  'Turn on injection in the given column. Default: No injection')
+    parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
+                    help =  'Turn on injection in the given row and column. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
