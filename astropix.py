@@ -115,7 +115,7 @@ class astropix2:
         dac_setup: dict - dictionairy of values passed to the configuration. Only needs values diffent from defaults
         bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
         digital_mask: str - String of 1s and 0s in 35x35 arangement which masks the array. Needed to enable pixels not (0,0)
-        blankmask: bool - Create a blank mask (everything disabled) and things will be disabled manually 
+        blankmask: bool - Create a blank mask (everything disabled). Pixels can be enabled manually 
         analog_col: int - Sets a column to readout analog data from. 
         """
 
@@ -139,20 +139,6 @@ class astropix2:
         # self.enable_pixel() and whatnot
         else:
             self._make_blank_mask()
-            # Turns on selected analog outputs if not a blank output 
-            if blankmask == False:
-                if (analog_col is not None) and (analog_col <= self._num_cols):
-                    logger.info(f"enabling anlalog output in column {analog_col}")
-                    self.enable_ampout_col(analog_col)
-                    self.enable_pixel(analog_col, )
-
-                else: # Enables pixel 0,0 only
-                    logger.info(f"enabling anlalog output in column 0 (default)")
-                    self.enable_ampout_col(0)
-                    self.enable_pixel(0,0)
-            # Turns on injection if so desired 
-            if self.injection_col is not None:
-                self.enable_inj_col(self.injection_col)
         
         ##analog output
         if (analog_col is not None) and (analog_col <= self._num_cols):
