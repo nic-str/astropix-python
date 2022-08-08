@@ -122,7 +122,7 @@ class Decode:
 
         return list_hits
 
-    def decode_astropix2_hits(self, list_hits: list):
+    def decode_astropix2_hits(self, list_hits: list) -> list:
         """
         Decode 5byte Frames from AstroPix 2
 
@@ -137,7 +137,11 @@ class Decode:
         Byte 4: ToT LSB
 
         :param list_hists: List with all hits
+
+        :returns: List of decoded hits
         """
+
+        hit_array = []
 
         for hit in list_hits:
             id          = int(hit[0]) >> 3
@@ -152,6 +156,7 @@ class Decode:
             wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
             wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)
 
+            hit_array.append([id,payload,location, col, timestamp, tot_total])
             print(
                 f"Header: ChipId: {wrong_id}\tPayload: {wrong_payload}\t"
                 f"Location: {location}\tRow/Col: {'Col' if col else 'Row'}\t"
@@ -159,3 +164,4 @@ class Decode:
                 f"ToT: MSB: {tot_msb}\tLSB: {tot_lsb} Total: {tot_total} ({(tot_total * self.sampleclock_period_ns)/1000.0} us)"
             )
 
+        return hit_array

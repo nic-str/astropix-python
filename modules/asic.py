@@ -111,33 +111,36 @@ class Asic(Nexysio):
     def get_num_rows(self):
         return self._num_rows
 
-    def enable_inj_row(self, col: int):
-        self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b000_00000_00000_00000_00000_00000_00000_00001
+    def enable_inj_row(self, row: int):
+        if(row < self._num_rows):
+            self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b000_00000_00000_00000_00000_00000_00000_00001
 
     def enable_inj_col(self, col: int):
-        self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b010_00000_00000_00000_00000_00000_00000_00000
+        if(col < self._num_cols):
+            self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b010_00000_00000_00000_00000_00000_00000_00000
 
     def enable_ampout_col(self, col: int):
-        self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b100_00000_00000_00000_00000_00000_00000_00000
+        if(col < self._num_cols):
+            self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b100_00000_00000_00000_00000_00000_00000_00000
 
-        for i in range(self.get_num_cols()):
-            if not i == col:
-                self.recconfig[f'ColConfig{i}'] = self.recconfig.get(f'ColConfig{col}') & 0b011_11111_11111_11111_11111_11111_11111_11111
+            for i in range(self.get_num_cols()):
+                if not i == col:
+                    self.recconfig[f'ColConfig{i}'] = self.recconfig.get(f'ColConfig{col}') & 0b011_11111_11111_11111_11111_11111_11111_11111
 
     def enable_pixel(self, col: int, row: int):
-        if(row < self._num_rows):
+        if(row < self._num_rows and col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & ~(2 << row)
 
     def disable_pixel(self, col: int, row: int):
-        if(row < self._num_rows):
+        if(row < self._num_rows and col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | (2 << row)
 
-    def disable_row(self, col: int, row: int):
+    def disable_inj_row(self, row: int):
         if(row < self._num_rows):
-            self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b111_11111_11111_11111_11111_11111_11111_11110
+            self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b111_11111_11111_11111_11111_11111_11111_11110
 
-    def disable_col(self, col: int, row: int):
-        if(row < self._num_rows):
+    def disable_inj_col(self, col: int):
+        if(col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b101_11111_11111_11111_11111_11111_11111_11111
 
     def get_pixel(self, col: int, row: int):
