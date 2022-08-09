@@ -186,7 +186,7 @@ if __name__ == "__main__":
                     help =  'Turn on injection. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
-                    help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
+                    help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')

@@ -226,7 +226,7 @@ if __name__ == "__main__":
                     help =  'Turn on injection in the given row and column. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
-                    help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
+                    help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
     parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = "./masks/mask_row0_col0.txt",
                     help = 'filepath to digital mask to enable digital readout. Default: No digital readout (all pixels off)')

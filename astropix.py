@@ -295,7 +295,7 @@ class astropix2:
         dac_config:tuple[int, list[float]]: injdac settings. Must be fully specified if set. 
         """
         # Default configuration for the dac
-        # 0.3 is injection voltage
+        # 0.3 is (default) injection voltage
         # 2 is slot number for inj board
         default_injdac = (2, [0.3, 0.0])
         # Some fault tolerance
@@ -317,7 +317,7 @@ class astropix2:
                 raise ValueError("Cannot inject a negative voltage!")
             elif inj_voltage > 1800:
                 logger.warning("Cannot inject more than 1800mV, will use defaults")
-                inj_voltage = 400 #Sets to 200 mV
+                inj_voltage = 300 #Sets to 300 mV
 
             inj_voltage = inj_voltage / 1000
             dac_settings[1][0] = inj_voltage
