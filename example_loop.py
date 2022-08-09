@@ -1,5 +1,7 @@
 """
 Simple script to loop through pixels enabling one at a time, using astropix.py
+Based off beam_test.py
+
 Author: Amanda Steinhebel
 """
 
@@ -25,7 +27,6 @@ if os.path.exists(logdir) == False:
 logname = "./runlogs/AstropixRunlog_" + time.strftime("%Y%m%d-%H%M%S") + ".log"
 
 
-
 # This is the dataframe which is written to the csv if the decoding fails
 decode_fail_frame = pd.DataFrame({
                 'readout': np.nan,
@@ -45,14 +46,17 @@ decode_fail_frame = pd.DataFrame({
   
 
 #Init 
-def main(args,row,col):
+def main(args,row,col,injectPix):
 
     # Ensures output directory exists
     if os.path.exists(args.outdir) == False:
         os.mkdir(args.outdir)
 
     # Prepare everything, create the object
-    astro = astropix2(inject=args.inject)
+    if args.inject:
+        astro = astropix2(inject=injectPix) #enable injections
+    else:
+        astro = astropix2() #initialize without enabling injections
 
     # Initialie asic - blank array, no pixels enabled
     astro.asic_init()
@@ -63,22 +67,20 @@ def main(args,row,col):
 
     astro.init_voltages(vthreshold=args.threshold)
     # If injection is on initalize the board
-    if args.inject is not None:
+    if args.inject:
         astro.init_injection(inj_voltage=args.vinj)
     astro.enable_spi() 
     logger.info("Chip configured")
     astro.dump_fpga()
 
-    if args.inject is not None:
+    if args.inject:
         astro.start_injection()
 
-
-    max_errors = args.errormax
     i = 0
-    errors = 0 # Sets the threshold 
     if args.maxtime is not None: 
         end_time=time.time()+(args.maxtime*60.)
-    fname="" if not args.name else args.name+"_"
+    strPix = "_col"+str(col)+"_row"+str(row)
+    fname=strPix if not args.name else args.name+strPix+"_"
 
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
@@ -108,9 +110,9 @@ def main(args,row,col):
 
     try: # By enclosing the main loop in try/except we are able to capture keyboard interupts cleanly
         
-        while errors <= max_errors: # Loop continues 
+        while (True): # Loop continues 
 
-            # This might be possible to do in the loop declaration, but its a lot easier to simply add in this logic
+            # Break conditions
             if args.maxruns is not None:
                 if i >= args.maxruns: break
             if args.maxtime is not None:
@@ -132,16 +134,11 @@ def main(args,row,col):
                     hits = astro.decode_readout(readout, i, printer = True)
 
                 except IndexError:
-                    errors += 1
-                    logger.warning(f"Decoding failed. Failure {errors} of {max_errors} on readout {i}")
                     # We write out the failed decode dataframe
                     hits = decode_fail_frame
                     hits.readout = i
                     hits.hittime = time.time()
 
-                    # This loggs the end of it all 
-                    if errors > max_errors:
-                        logger.warning(f"Decoding failed {errors} times on an index error. Terminating Progam...")
                 finally:
                     i += 1
 
@@ -163,8 +160,8 @@ def main(args,row,col):
         if args.saveascsv: 
             csvframe.index.name = "dec_order"
             csvframe.to_csv(csvpath) 
-        if args.inject is not None: astro.stop_injection()   
-        bitfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
+        if args.inject: astro.stop_injection()   
+        bitfile.close() # Close open file       
         astro.close_connection() # Closes SPI
         logger.info("Program terminated successfully")
     # END OF PROGRAM
@@ -185,20 +182,14 @@ if __name__ == "__main__":
                     default=False, required=False, 
                     help='save output files as CSV. If False, save as txt')
     
-    parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
-                    help =  'Turn on injection in the given row and column. Default: No injection')
+    parser.add_argument('-i', '--inject', action='store_true', default=False, required=False,
+                    help =  'Turn on injection. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 400 mV')
 
-    parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
-                    help = 'Turn on analog output in the given column. Default: Column 0. Set to None to turn off analog output.')
-
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
-    
-    parser.add_argument('-E', '--errormax', action='store', type=int, default='100', 
-                    help='Maximum index errors allowed during decoding. DEFAULT 100')
 
     parser.add_argument('-r', '--maxruns', type=int, action='store', default=None,
                     help = 'Maximum number of readouts')
@@ -206,27 +197,17 @@ if __name__ == "__main__":
     parser.add_argument('-M', '--maxtime', type=float, action='store', default=None,
                     help = 'Maximum run time (in minutes)')
 
-    parser.add_argument('-L', '--loglevel', type=str, choices = ['D', 'I', 'E', 'W', 'C'], action="store", default='I',
-                    help='Set loglevel used. Options: D - debug, I - info, E - error, W - warning, C - critical. DEFAULT: D')
+    parser.add_argument('-C', '--colrange', action='store', default=[0,33], type=int, nargs=2,
+                    help =  'Loop over given range of columns. Default: 0 34')
+
+    parser.add_argument('-R', '--rowrange', action='store', default=[0,33], type=int, nargs=2,
+                    help =  'Loop over given range of rows. Default: 0 34')
 
     parser.add_argument
     args = parser.parse_args()
-
-    # Sets the loglevel
-    ll = args.loglevel
-    if ll == 'D':
-        loglevel = logging.DEBUG
-    elif ll == 'I':
-        loglevel = logging.INFO
-    elif ll == 'E':
-        loglevel = logging.ERROR
-    elif ll == 'W':
-        loglevel = logging.WARNING
-    elif ll == 'C':
-        loglevel = logging.CRITICAL
     
     # Logging stuff!
-    # This was way harder than I expected...
+    loglevel = logging.INFO
     formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
     fh = logging.FileHandler(logname)
     fh.setFormatter(formatter)
@@ -239,11 +220,9 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    rows=[i for i in range(3)]
-    cols=[j for j in range(3)]
-    for r in rows:
-        for c in cols:
-            print(args.inject)
-            args.inject=[r,c]
-            main(args,r,c)
-            time.sleep(2)
+    #loop over full array by default, unless bounds are given as argument
+    for r in range(args.rowrange[0],args.rowrange[1]+1,1):
+        for c in range(args.colrange[0],args.colrange[1]+1,1):
+            injectPix=[r,c]
+            main(args,r,c,injectPix)
+            time.sleep(2) # to avoid loss of connection to Nexys
