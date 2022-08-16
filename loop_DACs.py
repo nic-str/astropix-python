@@ -82,7 +82,7 @@ def main(args,dac):
     if args.maxtime is not None: 
         end_time=time.time()+(args.maxtime*60.)
     strDac = args.DAC+"_"+str(dac)+"_"
-    fname=strDac if not args.name else args.name+strDac
+    fname=strDac if not args.name else args.name+"_"+strDac
 
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
@@ -231,4 +231,4 @@ if __name__ == "__main__":
     #loop over full array by default, unless bounds are given as argument
     for d in range(args.dacrange[0],args.dacrange[1],args.dacrange[2]):
         main(args,d)
-        time.sleep(2) # to avoid loss of connection to Nexys
+        time.sleep(5) # to avoid loss of connection to Nexys
