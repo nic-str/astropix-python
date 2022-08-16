@@ -51,7 +51,7 @@ class astropix2:
             'vncomp': 2,
             'vpfoll': 60,
             'nu16': 0,
-            'vprec': 30,
+            'vprec': 60,
             'vnrec': 30
         }
 
@@ -495,7 +495,7 @@ class astropix2:
         self.digitalconfig = {'interupt_pushpull': 1}
         for i in range(1,19):
             self.digitalconfig[f"En_Inj{i}"] = 0
-        self.digitalconfig["ResetB"] = 0
+        self.digitalconfig["Reset"] = 0
         for i in range(0,8):
             self.digitalconfig[f'Extrabit{i}'] = 1
         for i in range(8,15):
@@ -552,28 +552,28 @@ class astropix2:
     # Methods from updated asic.py
 
     def get_num_cols(self):
-        """
-        Returns number of columns
+        """Get number of columns
+        :returns: Number of columns
         """
         return self._num_cols
 
     def get_num_rows(self):
-        """
-        Returns number of rows
+        """Get number of rows
+        :returns: Number of rows
         """
         return self._num_rows
 
-    def enable_inj_row(self, col: int, inplace:bool=True):
+    def enable_inj_row(self, row: int, inplace:bool=True):
         """
-        Enable injection in specified column
+        Enable injection in specified row
 
         Takes:
-        col: int -  Turns on rows? Maybe?
+        row: int -  Row number
         inplace:bool - True - Updates asic after updating pixel mask
 
         """
 
-        self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b000_00000_00000_00000_00000_00000_00000_00001
+        self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b000_00000_00000_00000_00000_00000_00000_00001
         
         if inplace: self.asic_update()
 
@@ -582,7 +582,7 @@ class astropix2:
         Enable injection in specified column
 
         Takes:
-        col: int -  Turns on rows? Maybe?
+        col: int -  Column number
         inplace:bool - True - Updates asic after updating pixel mask
 """
         self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b010_00000_00000_00000_00000_00000_00000_00000
@@ -591,7 +591,7 @@ class astropix2:
 
     def enable_ampout_col(self, col: int, inplace:bool=True):
         """
-        Enables analog output
+        Enables analog output, Select Col for analog mux and disable other cols
 
         Takes:
         col:int - Column to enable
@@ -609,7 +609,7 @@ class astropix2:
 
     def enable_pixel(self, col: int, row: int, inplace:bool=True):
         """
-        Turns on specified pixel!
+        Turns on comparator in specified pixel
 
         Takes:
         col: int - Column of pixel
@@ -622,7 +622,7 @@ class astropix2:
 
     def disable_pixel(self, col: int, row: int, inplace:bool=True):
         """
-        Turns off specified pixel!
+        Disable comparator in specified pixel
 
         Takes:
         col: int - Column of pixel
@@ -634,12 +634,18 @@ class astropix2:
         if inplace: self.asic_update()
 
 
-    def disable_row(self, col: int, row: int):
+    def disable_inj_row(self, row: int):
+        """Disable row injection switch
+        :param row: Row number
+        """
         if(row < self._num_rows):
-            self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b111_11111_11111_11111_11111_11111_11111_11110
+            self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b111_11111_11111_11111_11111_11111_11111_11110
 
-    def disable_col(self, col: int, row: int):
-        if(row < self._num_rows):
+    def disable_inj_col(self, col: int):
+        """Disable col injection switch
+        :param col: Col number
+        """
+        if(col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b101_11111_11111_11111_11111_11111_11111_11111
 
     def get_pixel(self, col: int, row: int):
@@ -655,7 +661,13 @@ class astropix2:
                 return False
             else:
                 return True
-
+    def reset_recconfig(self):
+        """Reset recconfig by disabling all pixels and disabling all injection switches and mux ouputs
+        """
+        i = 0
+        while i < self._num_cols:
+            self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
+            i += 1
 
 
     # This is from asic.py, and it essentially takes all the parameters and puts
@@ -690,7 +702,10 @@ class astropix2:
     def __int2nbit(self,value: int, nbits: int) -> BitArray:
         """Convert int to 6bit bitarray
 
-        :param value: DAC value 0-63
+        :param value: Integer value
+        :param nbits: Number of bits
+
+        :returns: Bitarray of specified length
         """
 
         try:
