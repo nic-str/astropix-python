@@ -12,12 +12,6 @@ from dataclasses import dataclass
 
 from modules.nexysio import Nexysio
 
-@dataclass
-class Astropix2Config:
-    # TODO Improvement: Move Configbits to dedicated dataclass
-    pass
-
-
 class Asic(Nexysio):
     """Configure ASIC"""
 
@@ -35,7 +29,7 @@ class Asic(Nexysio):
             self.digitalconfig[f'En_Inj{i}'] = 0
             i += 1
 
-        self.digitalconfig['ResetB'] = 0
+        self.digitalconfig['Reset'] = 0
 
         i = 0
         while i < 8:
@@ -76,28 +70,6 @@ class Asic(Nexysio):
             'vnrec': 30
         }
 
-        # self.dacs = {
-        #     'blres': 10,
-        #     'nu1': 0,
-        #     'vn1': 10,
-        #     'vnfb': 10,
-        #     'vnfoll': 2,
-        #     'nu5': 0,
-        #     'nu6': 0,
-        #     'nu7': 0,
-        #     'nu8': 0,
-        #     'vn2': 0,
-        #     'vnfoll2': 10,
-        #     'vnbias': 10,
-        #     'vpload': 2,
-        #     'nu13': 0,
-        #     'vncomp': 20,
-        #     'vpfoll': 20,
-        #     'nu16': 0,
-        #     'vprec': 30,
-        #     'vnrec': 30
-        # }
-
         self.recconfig = {'ColConfig0': 0b001_11111_11111_11111_11111_11111_11111_11110}
 
         i = 1
@@ -106,44 +78,87 @@ class Asic(Nexysio):
             i += 1
 
     def get_num_cols(self):
+        """Get number of columns
+
+        :returns: Number of columns
+        """
         return self._num_cols
 
     def get_num_rows(self):
+        """Get number of rows
+
+        :returns: Number of rows
+        """
         return self._num_rows
 
     def enable_inj_row(self, row: int):
+        """Enable Row injection switch
+
+        :param row: Row number
+        """
         if(row < self._num_rows):
             self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b000_00000_00000_00000_00000_00000_00000_00001
 
     def enable_inj_col(self, col: int):
+        """Enable col injection switch
+
+        :param col: Col number
+        """
         if(col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b010_00000_00000_00000_00000_00000_00000_00000
 
     def enable_ampout_col(self, col: int):
+        """Select Col for analog mux and disable other cols
+
+        :param col: Col number
+        """
         if(col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | 0b100_00000_00000_00000_00000_00000_00000_00000
 
             for i in range(self.get_num_cols()):
                 if not i == col:
-                    self.recconfig[f'ColConfig{i}'] = self.recconfig.get(f'ColConfig{col}') & 0b011_11111_11111_11111_11111_11111_11111_11111
+                    self.recconfig[f'ColConfig{i}'] = self.recconfig.get(f'ColConfig{i}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b011_11111_11111_11111_11111_11111_11111_11111
 
     def enable_pixel(self, col: int, row: int):
+        """Enable pixel comparator for specified pixel
+
+        :param col: Col number
+        :param row: Row number
+        """
         if(row < self._num_rows and col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & ~(2 << row)
 
     def disable_pixel(self, col: int, row: int):
+        """Disable pixel comparator for specified pixel
+
+        :param col: Col number
+        :param row: Row number
+        """
         if(row < self._num_rows and col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) | (2 << row)
 
     def disable_inj_row(self, row: int):
+        """Disable row injection switch
+
+        :param row: Row number
+        """
         if(row < self._num_rows):
             self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b111_11111_11111_11111_11111_11111_11111_11110
 
     def disable_inj_col(self, col: int):
+        """Disable col injection switch
+
+        :param col: Col number
+        """
         if(col < self._num_cols):
             self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b101_11111_11111_11111_11111_11111_11111_11111
 
     def get_pixel(self, col: int, row: int):
+        """Check if Pixel is enabled
+
+        :param col: Col number
+        :param row: Row number
+        """
         if(row < self._num_rows):
             if( self.recconfig.get(f'ColConfig{col}') & (1<<(row+1))):
                 return False
@@ -151,6 +166,8 @@ class Asic(Nexysio):
                 return True
 
     def reset_recconfig(self):
+        """Reset recconfig by disabling all pixels and disabling all injection switches and mux ouputs
+        """
         i = 0
         while i < self._num_cols:
             self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
@@ -160,7 +177,10 @@ class Asic(Nexysio):
     def __int2nbit(value: int, nbits: int) -> BitArray:
         """Convert int to 6bit bitarray
 
-        :param value: DAC value 0-63
+        :param value: Integer value
+        :param nbits: Number of bits
+
+        :returns: Bitarray of specified length
         """
 
         try:
