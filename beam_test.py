@@ -57,6 +57,7 @@ def main(args):
     # Ensures output directory exists
     if os.path.exists(args.outdir) == False:
         os.mkdir(args.outdir)
+    print(f"MASKED {masked}")
 
     # Prepare everything, create the object
     astro = astropix2(inject=args.inject)
@@ -65,7 +66,7 @@ def main(args):
     if masked: 
         astro.asic_init(digital_mask=bitmask, analog_col = args.analog)
     else: 
-        astro.asic_init()
+        astro.asic_init(analog_col = args.analog)
 
     astro.init_voltages(vthreshold=args.threshold)
     # If injection is on initalize the board
@@ -228,7 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
-    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = "./masks/mask_row0_col0.txt",
+    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
                     help = 'filepath to digital mask to enable digital readout. Default: No digital readout (all pixels off)')
 
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
