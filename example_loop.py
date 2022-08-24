@@ -60,12 +60,12 @@ def main(args,row,col,injectPix):
 
     # Initialie asic - blank array, no pixels enabled
     astro.asic_init()
+    astro.init_voltages(vthreshold=args.threshold)
 
     #Enable single pixel in (col,row)
     #Updates asic by default
     astro.enable_pixel(col,row)
 
-    astro.init_voltages(vthreshold=args.threshold)
     # If injection is on initalize the board
     if args.inject:
         astro.init_injection(inj_voltage=args.vinj)

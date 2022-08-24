@@ -63,11 +63,12 @@ def main(args,dac):
         astro.asic_init(dac_setup={args.DAC: dac},analog_col = args.analog)
     else:
         astro.asic_init(analog_col = args.analog)
+ 
+    astro.init_voltages(vthreshold=args.threshold)
 
     #Enable single pixel from argument, or (0,0) if no pixel given
     astro.enable_pixel(args.pixel[1],args.pixel[0])
 
-    astro.init_voltages(vthreshold=args.threshold)
     # If injection is on initalize the board
     if args.inject:
         astro.init_injection(inj_voltage=args.vinj)

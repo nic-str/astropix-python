@@ -84,21 +84,20 @@ Must go in this order!!
     - optional arguments: 
         - clock_period_ns, default 10
         - inject, default `False`. When true configures the pixels to accept an injection voltage
-
-2. Initalizing the ASIC
-    - call `astro.asic_init()`
-    - Usage: `astro.asic_init([no required], dac_setup: dict, bias_setup: dict, digital_mask: str)`
-    - Optional arguments:
-        - dac_setup: dictionairy of values which will be used to change the defalt dac settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
-        - bias_setup: dictionairy of values which will be used to change the defalt bias settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
-        - digital_mask: text data of 1s and 0s in a 35x35 grid (newline seperated rows) specifying what pixels are on and off. If not specified chip will be in analog mode
-3. initializing voltages
+2. Initializing voltages
     - call `astro.init_voltages([none required] slot, vcal, vsupply, vthreshold, [optional] dacvals)`
     - slot: Usually 4, tells chip where the board is
     - vcal: calibrated voltage. Usually 0.989
     - vsupply: voltage to gecco board, usually 2.7
     - vthreshold: ToT threshold voltage. Usually 1.075 ish    
     - optional, dacvals: if you want to configure the dac values, do that here
+3. Initalizing the ASIC
+    - call `astro.asic_init()`
+    - Usage: `astro.asic_init([no required], dac_setup: dict, bias_setup: dict, digital_mask: str)`
+    - Optional arguments:
+        - dac_setup: dictionairy of values which will be used to change the defalt dac settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
+        - bias_setup: dictionairy of values which will be used to change the defalt bias settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
+        - digital_mask: text data of 1s and 0s in a 35x35 grid (newline seperated rows) specifying what pixels are on and off. If not specified chip will be in analog mode
 4. initalizing injector board (optional)
     - call `astro.init_injection()`
     - Has following options and defaults:

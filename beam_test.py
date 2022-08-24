@@ -61,6 +61,8 @@ def main(args):
     # Prepare everything, create the object
     astro = astropix2(inject=args.inject)
 
+    astro.init_voltages(vthreshold=args.threshold)
+
     # Passes mask if specified, else it creates a blank mask with no active pixels
     if masked: 
         astro.asic_init(digital_mask=bitmask, analog_col = args.analog)
@@ -71,7 +73,7 @@ def main(args):
     if not masked and args.inject is not None:
         astro.enable_pixel(args.inject[1],args.inject[0])    
 
-    astro.init_voltages(vthreshold=args.threshold)
+
     # If injection is on initalize the board
     if args.inject is not None:
         astro.init_injection(inj_voltage=args.vinj)
