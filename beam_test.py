@@ -45,7 +45,7 @@ decode_fail_frame = pd.DataFrame({
 
   
 
-#Init stuffs
+#Initialize
 def main(args):
 
     # Used for creating the mask
@@ -57,16 +57,19 @@ def main(args):
     # Ensures output directory exists
     if os.path.exists(args.outdir) == False:
         os.mkdir(args.outdir)
-    print(f"MASKED {masked}")
-
+        
     # Prepare everything, create the object
     astro = astropix2(inject=args.inject)
 
-    # Passes mask if specified, else it creates an analog mask of (0,0)
+    # Passes mask if specified, else it creates a blank mask with no active pixels
     if masked: 
         astro.asic_init(digital_mask=bitmask, analog_col = args.analog)
     else: 
         astro.asic_init(analog_col = args.analog)
+
+    #If injection, enable injection pixel unless mask has been given. Mask overrides
+    if not masked and args.inject is not None:
+        astro.enable_pixel(args.inject[1],args.inject[0])    
 
     astro.init_voltages(vthreshold=args.threshold)
     # If injection is on initalize the board
@@ -224,7 +227,7 @@ if __name__ == "__main__":
                     help='save output files as CSV. If False, save as txt')
     
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
-                    help =  'Turn on injection in the given row and column. Default: No injection')
+                    help =  'Turn on injection in the given row and column. If no mask (-m) given, then enables only this pixel. Overridden by mask (-m) Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
