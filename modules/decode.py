@@ -87,6 +87,8 @@ class Decode:
         :returns: List of hits
         """
 
+        if type(readout) == list: readout=bytearray(readout)
+
         #Reverse Bitorder per byte
         if reverse_bitorder:
             readout = self.reverse_bitorder(readout)

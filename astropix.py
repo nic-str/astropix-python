@@ -68,13 +68,14 @@ class astropix2:
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
-    def __init__(self, clock_period_ns = 10, inject:int = None):
+    def __init__(self, clock_period_ns = 10, inject:int = None, offline:bool=False):
         """
         Initalizes astropix object. 
         No required arguments
         Optional:
         clock_period_ns:int - period of main clock in ns
         inject:bool - if set to True will enable injection for the whole array.
+        offline:bool - if True, do not try to interface with chip
         """
 
         # _asic_start tracks if the inital configuration has been run on the ASIC yet.
@@ -85,20 +86,24 @@ class astropix2:
         self._num_rows = 35
         self._num_cols = 35
 
-        self._asic_start = False
-        self.nexys = Nexysio()
-        self.handle = self.nexys.autoopen()
-        self._wait_progress(2)
-        # Ensure it is working
-        logger.info("Opened FPGA, testing...")
-        self._test_io()
-        logger.info("FPGA test successful.")
-        # Start putting the variables in for use down the line
+        if offline:
+            logger.info("Creating object for offline analysis")
+        else:
+            self._asic_start = False
+            self.nexys = Nexysio()
+            self.handle = self.nexys.autoopen()
+            self._wait_progress(2)
+            # Ensure it is working
+            logger.info("Opened FPGA, testing...")
+            self._test_io()
+            logger.info("FPGA test successful.")
+            # Start putting the variables in for use down the line
+            if inject is None:
+                inject = (None, None)
+            self.injection_col = inject[1]
+            self.injection_row = inject[0]
+
         self.sampleclock_period_ns = clock_period_ns
-        if inject is None:
-            inject = (None, None)
-        self.injection_col = inject[1]
-        self.injection_row = inject[0]
         # Creates objects used later on
         self.decode = Decode(clock_period_ns)
         
