@@ -80,7 +80,7 @@ Must go in this order!!
 
 1. Creating the instance
     - After import, call astropix2().
-    - Usage: `astropix2([no required], clock_period_ns: int, inject: bool)`
+    - Usage: `astropix2([none required], clock_period_ns: int, inject: bool)`
     - optional arguments: 
         - clock_period_ns, default 10
         - inject, default `False`. When true configures the pixels to accept an injection voltage
@@ -93,12 +93,13 @@ Must go in this order!!
     - optional, dacvals: if you want to configure the dac values, do that here
 3. Initalizing the ASIC
     - call `astro.asic_init()`
-    - Usage: `astro.asic_init([no required], dac_setup: dict, bias_setup: dict, digital_mask: str)`
+    - Usage: `astro.asic_init(yaml:str, [opt] dac_setup: dict, bias_setup: dict, digital_mask: str)`
     - Optional arguments:
-        - dac_setup: dictionairy of values which will be used to change the defalt dac settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
-        - bias_setup: dictionairy of values which will be used to change the defalt bias settings. Does not need to have a complete dictionairy, only values that you want to change. Default None
+        - yaml: string of name of configuration .yml file in /config/*.yml. If none given command-line, default set to config/testconfig.yml
+        - dac_setup: dictionary of values which will be used to change the defalt dac settings. Does not need to have a complete dictionary, only values that you want to change. Default None
+        - bias_setup: dictionary of values which will be used to change the defalt bias settings. Does not need to have a complete dictionary, only values that you want to change. Default None
         - digital_mask: text data of 1s and 0s in a 35x35 grid (newline seperated rows) specifying what pixels are on and off. If not specified chip will be in analog mode
-4. initalizing injector board (optional)
+4. Initalizing injector board (optional)
     - call `astro.init_injection()`
     - Has following options and defaults:
         - dac_settings:tuple[int, list[float]] = (2, [0.4, 0.0])
@@ -118,7 +119,9 @@ astro.hits_present() --> bool. Are thre any hits on the board currently?
 
 astro.get_readout() --> bytearray. Gets bytestream from the chip
 
-astro.decode_readout(readout, [opt] printer) --> list of dictionairies. printer prints the decoded values to terminal
+astro.decode_readout(readout, [opt] printer) --> list of dictionaries. Printer prints the decoded values to terminal
+
+astro.write_conf_to_yaml(<outputName>) --> write configuration settings to *.yml
 
 astro.start_injection() and astro.stop_injection() are self explainatory
 
@@ -136,6 +139,7 @@ Options:
 | :--- | :--- | :---  | :--- |
 | `-n` `--name` | `-n [SOMESTRING]` | Set additional name to be added to the timestamp in file outputs | None |
 | `-o` `--outdir`| `-o [DIRECTORY]` | Directory to save all output files to. Will be created if it doesn't exist. | `./` |
+| `-y` `--yaml`| `-y [NAME]` | Name of configuration file, assuming config/*.yml where * is passed. If not specified, uses config/testconfig.yml and disables all pixels | `testconfig` |
 | `-m` `--mask` | `-m [PATH]`       | Enable digital output of pixels passing mask. Takes a path to a text file specifying which pixels are enabled. If not specified will disable all pixels. | None / diabled array|
 | `-c` `--saveascsv` | `-c`         | Toggle saving csv files on and off | Does not save csv |
 | `-s` `--showhits` | `-s`          | Display hits in real time | Off |

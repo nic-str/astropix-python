@@ -61,22 +61,27 @@ def main(args):
     # Prepare everything, create the object
     astro = astropix2(inject=args.inject)
 
-    astro.init_voltages(vthreshold=args.threshold)
+    astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
+
+    #Define YAML path variables
+    pathdelim=os.path.sep #determine if Mac or Windows separators in path name
+    ymlpath="config"+pathdelim+args.yaml+".yml"
 
     # Passes mask if specified, else it creates a blank mask with no active pixels
     if masked: 
-        astro.asic_init(digital_mask=bitmask, analog_col = args.analog)
+        astro.asic_init(yaml=args.yaml, digital_mask=bitmask, analog_col = args.analog)
     else: 
-        astro.asic_init(analog_col = args.analog)
+        astro.asic_init(yaml=ymlpath, analog_col = args.analog)
 
     #If injection, enable injection pixel unless mask has been given. Mask overrides
     if not masked and args.inject is not None:
         astro.enable_pixel(args.inject[1],args.inject[0])    
 
-
     # If injection is on initalize the board
     if args.inject is not None:
         astro.init_injection(inj_voltage=args.vinj)
+
+    #Enable final configuration
     astro.enable_spi() 
     logger.info("Chip configured")
     astro.dump_fpga()
@@ -109,7 +114,10 @@ def main(args):
                 'hittime'
         ])
 
-    # And here for the text files/logs
+    # Save final configuration to output file    
+    ymlpathout="config"+pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    astro.write_conf_to_yaml(ymlpathout)
+    # Prepare text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
     bitfile = open(bitpath,'w')
@@ -217,16 +225,19 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outdir', default='.', required=False,
                     help='Output Directory for all datafiles')
 
+    parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
+                    help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
+
     parser.add_argument('-s', '--showhits', action='store_true',
                     default=False, required=False,
                     help='Display hits in real time during data taking')
     
     parser.add_argument('-p', '--plotsave', action='store_true', default=False, required=False,
-                    help='Save plots as image files. If set, will be saved in  same dir as data. DEFAULT FALSE')
+                    help='Save plots as image files. If set, will be saved in  same dir as data. Default: FALSE')
     
     parser.add_argument('-c', '--saveascsv', action='store_true', 
                     default=False, required=False, 
-                    help='save output files as CSV. If False, save as txt')
+                    help='save output files as CSV. If False, save as txt. Default: FALSE')
     
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
                     help =  'Turn on injection in the given row and column. If no mask (-m) given, then enables only this pixel. Overridden by mask (-m) Default: No injection')
