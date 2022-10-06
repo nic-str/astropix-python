@@ -59,7 +59,7 @@ def main(args):
         os.mkdir(args.outdir)
         
     # Prepare everything, create the object
-    astro = astropix2(inject=args.inject)
+    astro = astropix2(inject=args.inject) #no updates in YAML
 
     astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
 
@@ -69,7 +69,7 @@ def main(args):
 
     # Passes mask if specified, else it creates a blank mask with no active pixels
     if masked: 
-        astro.asic_init(yaml=args.yaml, digital_mask=bitmask, analog_col = args.analog)
+        astro.asic_init(yaml=ymlpath, digital_mask=bitmask, analog_col = args.analog)
     else: 
         astro.asic_init(yaml=ymlpath, analog_col = args.analog)
 

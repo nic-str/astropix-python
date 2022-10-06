@@ -16,59 +16,15 @@ from bitstring import BitArray
 from tqdm import tqdm
 import pandas as pd
 import regex as re
-import binascii
 import time
 import yaml
-
-import os.path, os
 
 # Logging stuff
 import logging
 from modules.setup_logger import logger
 logger = logging.getLogger(__name__)
 
-
-
-# Here are the default configuration values. 
-# This includes the DAC configurations, default registers, etc...
-
-
-
 class astropix2:
-    #Depreciated hardcoding in favor of YAML
-    """
-    # First the global defaults which will be used later
-    DACS_CFG = {
-            'blres': 0,
-            'nu1': 0,
-            'vn1': 20,
-            'vnfb': 3,#1,
-            'vnfoll': 10,
-            'nu5': 0,
-            'nu6': 0,
-            'nu7': 0,
-            'nu8': 0,
-            'vn2': 0,
-            'vnfoll2': 4,#1,
-            'vnbias': 0,
-            'vpload': 5,
-            'nu13': 0,
-            'vncomp': 2,
-            'vpfoll': 60,
-            'nu16': 0,
-            'vprec': 60,
-            'vnrec': 30
-        }
-
-    BIAS_CFG = {
-            'DisHiDR': 0,
-            'q01': 0,
-            'qon0': 0,
-            'qon1': 1,
-            'qon2': 0,
-            'qon3': 1,
-        }
-    """
 
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
@@ -152,7 +108,7 @@ class astropix2:
                         "geometry": {"cols": self.num_cols, "rows": self.num_rows},\
                         "config" : self.asic_config}\
                     },
-                    stream, default_flow_style=True, sort_keys=False)
+                    stream, default_flow_style=False, sort_keys=False)
 
             except yaml.YAMLError as exc:
                 logger.error(exc)
@@ -192,26 +148,6 @@ class astropix2:
             self.biasconfig.update(bias_setup)
         if dac_setup is not None:
             self.dacconfig.update(dac_setup)
-            
-
-        #DEPRECIATED FROM YAML INCLUSION
-        """
-        #self.dac_setup = self.DACS_CFG
-        #use default DACs from YAML, isolate DAC value from array with bit allotment
-        self.dac_setup = {}
-        for key, value in self.asic_config['idacs'].items():
-            self.dac_setup[key] = value[1]
-        if dac_setup is not None:
-            self.dac_setup.update(dac_setup)
-
-        #self.bias_setup = self.BIAS_CFG
-        #use default bias config from YAML, isolate DAC value from array with bit allotment
-        self.bias_setup = {}
-        for key, value in self.asic_config['biasconfig'].items():
-            self.bias_setup[key] = value[1]
-        if bias_setup is not None:
-            self.bias_setup.update(bias_setup)
-        """
 
         #MASKING
         """
@@ -223,17 +159,6 @@ class astropix2:
         else:
             self._make_blank_mask()
         """ 
-        
-        #DEPRECIATED FROM YML
-        """
-        #self._make_digitalconfig() - depreciated, treat like idacs and biasconfig from yaml
-        #asic_update sends full input from yaml to chip - don't need to set these presets at all?
-        
-        #self.digitalconfig = {}
-        #for key, value in self.asic_config['digitalconfig'].items():
-        #    while i<value[0]:
-        #        self.digitalconfig[key] = value[1]
-        """
 
         ##analog output
         if (analog_col is not None) and (analog_col <= self._num_cols):
@@ -245,23 +170,18 @@ class astropix2:
             self.enable_inj_col(self.injection_col, inplace=False)
             self.enable_inj_row(self.injection_row, inplace=False)
 
-        #self._make_digital_mask()
-
         # Loads it to the chip
         logger.info("LOADING TO ASIC...")
         self.asic_update()
         logger.info("ASIC SUCCESSFULLY CONFIGURED")
 
-
     # The method to write data to the asic. Called whenever somthing is changed
     # or after a group of changes are done. Taken straight from asic.py.
-    # Might need updating down the line but it should still work
     def asic_update(self):
         """
         Remakes configbits and writes to asic. 
         Takes no input and does not return
         """
-
         self.nexys.chip_reset()
         asicbits = self.nexys.gen_asic_pattern(self._construct_asic_vector(), True)
         self.nexys.write(asicbits)
@@ -570,12 +490,6 @@ class astropix2:
         del readout
 
 
-
-
-
-
-
-
 ###################### INTERNAL METHODS ###########################
 
 # Below here are internal methods used for constructing things and testing
@@ -592,26 +506,6 @@ class astropix2:
             self.nexys.sr_readback_reset()
         except Exception: 
             raise RuntimeError("Could not read or write from astropix!")
-
-    # _make_digitalconfig(): Constructs the digitalconfig dictionairy. 
-    # Takes no arguments currently, and there is no way to update 
-    # self.digitalconfig (yet). Those might be added down the line 
-
-    #DEPRECIATED FROM YAML
-    """
-    def _make_digitalconfig(self):
-        # This can probably be replaced with a dictionairy comprehension. 
-        # I put this into for loops so we can use the range function which 
-        # makes it a lot easier to see whats going on
-        self.digitalconfig = {'interupt_pushpull': 1}
-        for i in range(1,19):
-            self.digitalconfig[f"En_Inj{i}"] = 0
-        self.digitalconfig["Reset"] = 0
-        for i in range(0,8):
-            self.digitalconfig[f'Extrabit{i}'] = 1
-        for i in range(8,15):
-            self.digitalconfig[f'Extrabit{i}'] = 0
-    """
 
     # Function to construct the reconfig dictionary. This code is taken from 
     # asic.py.
@@ -733,8 +627,6 @@ class astropix2:
         Takes:
         col:int - Column to enable
         inplace:bool - True - Updates asic after updating pixel mask
-
-        No return
         """
         #Disable all analog pixels
         for i in range(self.num_cols):
@@ -803,10 +695,8 @@ class astropix2:
     def reset_recconfig(self):
         """Reset recconfig by disabling all pixels and disabling all injection switches and mux ouputs
         """
-        i = 0
-        while i < self._num_cols:
-            self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
-            i += 1
+        for key in self.asic_config['recconfig']:
+            self.asic_config['recconfig'][key][1] = 0b001_11111_11111_11111_11111_11111_11111_11110
 
 
     # This is from asic.py, and it essentially takes all the parameters and puts
@@ -820,23 +710,15 @@ class astropix2:
         """
         bitvector = BitArray()
 
-        """
-        for value in self.digitalconfig.values():
-            bitvector.append(self.__int2nbit(value, 1))
-
-        for value in self.bias_setup.values():
-            bitvector.append(self.__int2nbit(value, 1))
-
-        for value in self.dac_setup.values():
-            bitvector.append(self.__int2nbit(value, 6))
-
-        for value in self.recconfig.values():
-            bitvector.append(self.__int2nbit(value, 38))
-        """
-
+        
         for key in self.asic_config:
             for values in self.asic_config[key].values():
+                print(values)
                 bitvector.append(self.__int2nbit(values[1], values[0]))
+        """
+        for values in self.asic_config['biasconfig'].values():
+            bitvector.append(self.__int2nbit(values[1], values[0]))
+        """
 
         if not msbfirst:
             bitvector.reverse()
@@ -853,11 +735,12 @@ class astropix2:
         """
 
         try:
+            print(len(BitArray(uint=value, length=nbits)))
             return BitArray(uint=value, length=nbits)
         except ValueError:
             print(f'Allowed Values 0 - {2**nbits-1}')
 
-    # A progress bar! So facny I know 
+    # progress bar 
     def _wait_progress(self, seconds:int):
         for _ in tqdm(range(seconds), desc=f'Wait {seconds} s'):
             time.sleep(1)
