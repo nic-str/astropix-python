@@ -710,11 +710,11 @@ class astropix2:
         """
         bitvector = BitArray()
 
-        
         for key in self.asic_config:
+            logger.debug(key)
             for values in self.asic_config[key].values():
-                print(values)
                 bitvector.append(self.__int2nbit(values[1], values[0]))
+                logger.debug(self.__int2nbit(values[1], values[0]))
         """
         for values in self.asic_config['biasconfig'].values():
             bitvector.append(self.__int2nbit(values[1], values[0]))
@@ -722,6 +722,8 @@ class astropix2:
 
         if not msbfirst:
             bitvector.reverse()
+
+        logger.debug(bitvector)
 
         return bitvector    
 
