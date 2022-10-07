@@ -48,12 +48,6 @@ decode_fail_frame = pd.DataFrame({
 #Initialize
 def main(args):
 
-    # Used for creating the mask
-    masked = False
-    if args.mask is not None:
-        masked = True
-        with open(args.mask, 'r') as file:
-            bitmask = file.read()
     # Ensures output directory exists
     if os.path.exists(args.outdir) == False:
         os.mkdir(args.outdir)
@@ -67,14 +61,11 @@ def main(args):
     pathdelim=os.path.sep #determine if Mac or Windows separators in path name
     ymlpath="config"+pathdelim+args.yaml+".yml"
 
-    # Passes mask if specified, else it creates a blank mask with no active pixels
-    if masked: 
-        astro.asic_init(yaml=ymlpath, digital_mask=bitmask, analog_col = args.analog)
-    else: 
-        astro.asic_init(yaml=ymlpath, analog_col = args.analog)
+    #Initiate asic with pixel mask as defined in yaml and analog pixel in row0 defined with input argument -a
+    astro.asic_init(yaml=ymlpath, analog_col = args.analog)
 
-    #If injection, enable injection pixel unless mask has been given. Mask overrides
-    if not masked and args.inject is not None:
+    #If injection, ensure injection pixel is enabled
+    if args.inject is not None:
         astro.enable_pixel(args.inject[1],args.inject[0])    
 
     # If injection is on initalize the board
@@ -240,16 +231,13 @@ if __name__ == "__main__":
                     help='save output files as CSV. If False, save as txt. Default: FALSE')
     
     parser.add_argument('-i', '--inject', action='store', default=None, type=int, nargs=2,
-                    help =  'Turn on injection in the given row and column. If no mask (-m) given, then enables only this pixel. Overridden by mask (-m) Default: No injection')
+                    help =  'Turn on injection in the given row and column. Default: No injection')
 
     parser.add_argument('-v','--vinj', action='store', default = None, type=float,
                     help = 'Specify injection voltage (in mV). DEFAULT 300 mV')
 
-    parser.add_argument('-m', '--mask', action='store', required=False, type=str, default = None,
-                    help = 'filepath to digital mask to enable digital readout. Default: No digital readout (all pixels off)')
-
     parser.add_argument('-a', '--analog', action='store', required=False, type=int, default = 0,
-                    help = 'Turn on analog output in the given column. Default: Column 0. Set to None to turn off analog output.')
+                    help = 'Turn on analog output in the given column. Default: Column 0.')
 
     parser.add_argument('-t', '--threshold', type = float, action='store', default=None,
                     help = 'Threshold voltage for digital ToT (in mV). DEFAULT 100mV')
