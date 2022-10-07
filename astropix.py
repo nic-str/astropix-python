@@ -118,14 +118,13 @@ class astropix2:
 
     # Method to initalize the asic. This is taking the place of asic.py. 
     # All of the interfacing is handeled through asic_update
-    def asic_init(self, yaml:str = None, dac_setup: dict = None, bias_setup:dict = None, digital_mask:str = None, blankmask:bool = False, analog_col:int = None):
+    def asic_init(self, yaml:str = None, dac_setup: dict = None, bias_setup:dict = None, blankmask:bool = False, analog_col:int = None):
         """
         self.asic_init() - initalize the asic configuration. Must be called first
         Positional arguments: None
         Optional:
         dac_setup: dict - dictionary of values passed to the configuration. Only needs values diffent from defaults
         bias_setup: dict - dict of values for the bias configuration Only needs key/vals for changes from default
-        digital_mask: str - String of 1s and 0s in 35x35 arangement which masks the array. Needed to enable pixels not (0,0)
         blankmask: bool - Create a blank mask (everything disabled). Pixels can be enabled manually 
         analog_col: int - Sets a column to readout analog data from. 
         """
@@ -148,17 +147,6 @@ class astropix2:
             self.biasconfig.update(bias_setup)
         if dac_setup is not None:
             self.dacconfig.update(dac_setup)
-
-        #MASKING
-        """
-        # If maskstring is passed it will mask based on that
-        if digital_mask is not None:
-            self._mask_from_string(digital_mask, None)
-        # If blankmask is set it will create a blank mask. Can be updated with 
-        # self.enable_pixel() and whatnot
-        else:
-            self._make_blank_mask()
-        """ 
 
         ##analog output
         if (analog_col is not None) and (analog_col <= self._num_cols):
@@ -190,7 +178,7 @@ class astropix2:
 
     # Methods to update the internal variables. Please don't do it manually
     # This updates the dac config
-    def update_asic_config(self, bias_cfg:dict = None, dac_cfg:dict = None, maskstr:str = None, analog_col:int=None):
+    def update_asic_config(self, bias_cfg:dict = None, dac_cfg:dict = None, analog_col:int=None):
         """
         Updates and writes confgbits to asic
 
@@ -202,8 +190,6 @@ class astropix2:
                 self.asic_config['biasconfig'].update(bias_cfg)
             if dac_cfg is not None:
                 self.asic_config['idacs'].update(dac_cfg)
-            if maskstr is not None:
-                self._make_digital_mask(maskstr, analog_col)
             else: 
                 logger.info("update_asic_config() got no argumennts, nothing to do.")
                 return None
@@ -510,51 +496,6 @@ class astropix2:
     # Function to construct the reconfig dictionary. This code is taken from 
     # asic.py.
  
-    # used for digital working with the sensor.
-
-    def _mask_from_string(self, digitmask:str, analog_col=None):
-        # Cleans up the string, ensures it is only 1, 0, or \n
-        bitmask = re.sub("[^01\n]", "", digitmask)
-        # turn it into a list
-        bitlist = bitmask.split("\n")
-        # Remove any extra rows that creeped in
-        if len(bitlist) > 35:
-            bitlist = bitlist[0:35]
-        # The dictionary which is returned
-        self.recconfig = {}
-        # used in construction
-        i = 0
-        # iterates through the list and does binary magic on it
-        for bits in bitlist:
-            # This works by adding entries to a dictionary and then:
-            # 1) creating a 35 bit space of zeros
-            # 2) converting the string to a binary integer
-            # 3) shifting by one to make room for injection on/off bit
-            # 4) setting the injection bit if we want injection on this run
-            # Bit 1: Analog output
-            # Bit 2: Injection
-            # last : Injection
-            analog_bit = 0b1 if (i == analog_col) else 0
-            injection_bit_col = 0 if (i == self.injection_col) else 0
-            injection_bit_row = 0 if (i == self.injection_row) else 0
-            self.recconfig[f"ColConfig{i}"] = (analog_bit << 37) + (injection_bit_col << 36) + (int(bits, 2) << 1) + injection_bit_row
-            i += 1
-
-    def _make_blank_mask(self):
-        """
-        Makes blank mask with no injections enabled and all outputs disabled. 
-        Should be used with methods such as astropix2.enable_inj_col() and astropix2.enable_pixel()
-        
-        Internal method called by asic_init()
-        """
-
-        self.recconfig = {'ColConfig0': 0b001_11111_11111_11111_11111_11111_11111_11110}
-        i = 1
-        while i < self._num_cols:
-            self.recconfig[f'ColConfig{i}'] = 0b001_11111_11111_11111_11111_11111_11111_11110
-            i += 1
-
-
     # Methods from updated asic.py
     @property
     def num_cols(self):
@@ -669,15 +610,16 @@ class astropix2:
         """Disable row injection switch
         :param row: Row number
         """
-        if(row < self._num_rows):
-            self.recconfig[f'ColConfig{row}'] = self.recconfig.get(f'ColConfig{row}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b111_11111_11111_11111_11111_11111_11111_11110
+        if(row < self.num_rows):
+            self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b111_11111_11111_11111_11111_11111_11111_11110
+
 
     def disable_inj_col(self, col: int):
         """Disable col injection switch
         :param col: Col number
         """
-        if(col < self._num_cols):
-            self.recconfig[f'ColConfig{col}'] = self.recconfig.get(f'ColConfig{col}', 0b001_11111_11111_11111_11111_11111_11111_11110) & 0b101_11111_11111_11111_11111_11111_11111_11111
+        if(col < self.num_cols):
+            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b101_11111_11111_11111_11111_11111_11111_11111
 
     def get_pixel(self, col: int, row: int):
         """
