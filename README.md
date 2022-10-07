@@ -142,7 +142,6 @@ Options:
 | `-n` `--name` | `-n [SOMESTRING]` | Set additional name to be added to the timestamp in file outputs | None |
 | `-o` `--outdir`| `-o [DIRECTORY]` | Directory to save all output files to. Will be created if it doesn't exist. | `./` |
 | `-y` `--yaml`| `-y [NAME]` | Name of configuration file, assuming config/*.yml where * is passed. If not specified, uses config/testconfig.yml and disables all pixels | `testconfig` |
-| `-m` `--mask` | `-m [PATH]`       | Enable digital output of pixels passing mask. Takes a path to a text file specifying which pixels are enabled. If not specified will disable all pixels. | None / diabled array|
 | `-c` `--saveascsv` | `-c`         | Toggle saving csv files on and off | Does not save csv |
 | `-s` `--showhits` | `-s`          | Display hits in real time | Off |
 | `-p` `--plotsave` | `-p`          | Saves real time plots as image files. Stored in outdir. | Does not save plots |
