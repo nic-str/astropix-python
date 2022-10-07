@@ -26,10 +26,24 @@ class Asic(Nexysio):
 
         self._handle = handle
 
+        self._chipversion = None
+
         self._num_rows = 35
         self._num_cols = 35
 
         self.asic_config = None
+
+    @property
+    def chipversion(self):
+        """Get/set chipversion
+
+        :returns: chipversion
+        """
+        return self._chipversion
+
+    @chipversion.setter
+    def chipversion(self, chipversion):
+        self._chipversion = chipversion
 
     @property
     def num_cols(self):
@@ -154,6 +168,8 @@ class Asic(Nexysio):
 
         :param filename: Name of yml file in config folder
         """
+        self.chipversion = chipversion
+
         with open(f"config/{filename}.yml", "r") as stream:
             try:
                 dict_from_yml = yaml.safe_load(stream)
@@ -212,8 +228,9 @@ class Asic(Nexysio):
     def update_asic(self) -> None:
         """Update ASIC"""
 
-        # Not needed for v2
-        # dummybits = self.gen_asic_pattern(BitArray(uint=0, length=245), True)
+        if self.chipversion == 1:
+            dummybits = self.gen_asic_pattern(BitArray(uint=0, length=245), True) # Not needed for v2
+            self.write(dummybits)
 
         # Write config
         asicbits = self.gen_asic_pattern(self.gen_asic_vector(), True)
