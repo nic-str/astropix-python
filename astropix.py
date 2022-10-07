@@ -737,7 +737,6 @@ class astropix2:
         """
 
         try:
-            print(len(BitArray(uint=value, length=nbits)))
             return BitArray(uint=value, length=nbits)
         except ValueError:
             print(f'Allowed Values 0 - {2**nbits-1}')
