@@ -7,7 +7,7 @@ Created on Fri Jun 25 16:28:27 2021
 """
 from bitstring import BitArray
 
-from modules.nexysio import Nexysio
+from core.nexysio import Nexysio
 
 
 class Voltageboard(Nexysio):

@@ -2,6 +2,7 @@
 Updated version of beam_test.py using the astropix.py module
 
 Author: Autumn Bauman 
+Maintained by: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
 """
 
 #from msilib.schema import File

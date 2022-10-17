@@ -14,7 +14,7 @@ import logging
 import binascii
 import time
 
-from modules.spi import Spi
+from core.spi import Spi
 from modules.setup_logger import logger
 
 READ_ADRESS     = 0x00

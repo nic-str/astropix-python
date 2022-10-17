@@ -13,7 +13,7 @@ import logging
 from bitstring import BitArray
 from dataclasses import dataclass
 
-from modules.nexysio import Nexysio
+from core.nexysio import Nexysio
 from modules.setup_logger import logger
 
 

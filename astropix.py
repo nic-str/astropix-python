@@ -1,17 +1,18 @@
 """
-Central module of astropix. This incorporates all of the various modules from the original 
-The class methods of all the other modules are inherited here. 
+Central module of astropix. This incorporates all of the various modules from the original 'module' directory backend (now 'core')
+The class methods of all the other modules/cores are inherited here. 
 
 Author: Autumn Bauman
+Maintained by: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
 """
 # Needed modules. They all import their own suppourt libraries, 
 # and eventually there will be a list of which ones are needed to run
 from typing import Dict
-from modules.spi import Spi 
-from modules.nexysio import Nexysio
-from modules.decode import Decode
-from modules.injectionboard import Injectionboard
-from modules.voltageboard import Voltageboard
+from core.spi import Spi 
+from core.nexysio import Nexysio
+from core.decode import Decode
+from core.injectionboard import Injectionboard
+from core.voltageboard import Voltageboard
 from bitstring import BitArray
 from tqdm import tqdm
 import pandas as pd
