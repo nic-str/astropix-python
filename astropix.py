@@ -133,12 +133,6 @@ class astropix2:
 
         self.asic = Asic(self.handle, self.nexys)
 
-        #Override yaml if arguments were given in run script
-        if bias_setup is not None:
-            self.biasconfig.update(bias_setup)
-        if dac_setup is not None:
-            self.dacconfig.update(dac_setup)
-        
         # Get config values from YAML
         try:
             self.load_conf_from_yaml(yaml)
@@ -147,7 +141,15 @@ class astropix2:
         #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
         #If any changes are made, make change to self.asic_config so that it is reflected on-chip when 
         # asic_update is called
+
+        #Override yaml if arguments were given in run script
+        self.update_asic_config(bias_setup, dac_setup)
+        """
+        if bias_setup is not None:
+            self.biasconfig.update(bias_setup)
+        if dac_setup is not None:
             self.dacconfig.update(dac_setup)
+        """
 
         # Set analog output
         if (analog_col is not None) and (analog_col <= self.asic._num_cols):
@@ -184,13 +186,15 @@ class astropix2:
         bias_cfg:dict - Updates the bias settings. Only needs key/value pairs which need updated
         dac_cfg:dict - Updates DAC settings. Only needs key/value pairs which need updated
         """
-        if self.asic_start:
+        if self._asic_start:
             if bias_cfg is not None:
-                self.asic.asic_config['biasconfig'].update(bias_cfg)
+                for key in bias_cfg:
+                    self.asic.asic_config['biasconfig'][key][1]=bias_cfg[key]
             if dac_cfg is not None:
-                self.asic.asic_config['idacs'].update(dac_cfg)
+                for key in dac_cfg:
+                    self.asic.asic_config['idacs'][key][1]=dac_cfg[key]
             else: 
-                logger.info("update_asic_config() got no argumennts, nothing to do.")
+                logger.info("update_asic_config() got no arguments, nothing to do.")
                 return None
             self.asic_update()
         else: raise RuntimeError("Asic has not been initalized")
