@@ -4,6 +4,7 @@
 Created on Fri Jun 25 16:28:27 2021
 
 @author: Nicolas Striebig
+Editor for astropix.py module: Autumn Bauman
 
 Astropix2 Configbits
 """
@@ -22,12 +23,12 @@ logger = logging.getLogger(__name__)
 class Asic(Nexysio):
     """Configure ASIC"""
 
-    def __init__(self, handle) -> None:
+    def __init__(self, handle, nexys) -> None:
 
         self._handle = handle
+        self.nexys = nexys
 
         self._chipversion = None
-
         self._num_rows = 35
         self._num_cols = 35
 
@@ -68,87 +69,161 @@ class Asic(Nexysio):
     @num_rows.setter
     def num_rows(self, rows):
         self._num_rows = rows
-
-    def enable_inj_row(self, row: int):
-        """Enable Row injection switch
-
-        :param row: Row number
+        
+    def get_num_cols(self):
+        """Get number of columns
+        :returns: Number of columns
         """
+        return self._num_cols
+
+    def get_num_rows(self):
+        """Get number of rows
+        :returns: Number of rows
+        """
+        return self._num_rows
+
+    def asic_update(self):
+        """
+        Remakes configbits and writes to asic. 
+        Takes no input and does not return
+        """
+        if self._chipversion == 1:
+            dummybits = self.nexys.gen_asic_pattern(BitArray(uint=0, length=245), True) # Not needed for v2
+            self.nexys.write(dummybits)
+
+        # Write config
+        asicbits = self.nexys.gen_asic_pattern(self._construct_asic_vector(), True)
+        self.nexys.write(asicbits)
+        logger.info("Wrote configbits successfully")
+
+    def enable_inj_row(self, row: int, inplace:bool=True):
+        """
+        Enable injection in specified row
+
+        Takes:
+        row: int -  Row number
+        inplace:bool - True - Updates asic after updating pixel mask
+
+        """
+
         if(row < self.num_rows):
             self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | 0b000_00000_00000_00000_00000_00000_00000_00001
+        
+        if inplace: self.asic_update()
 
-    def enable_inj_col(self, col: int):
-        """Enable col injection switch
+    def enable_inj_col(self, col: int, inplace:bool=True):
+        """
+        Enable injection in specified column
 
-        :param col: Col number
+        Takes:
+        col: int -  Column number
+        inplace:bool - True - Updates asic after updating pixel mask
         """
         if(col < self.num_cols):
             self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | 0b010_00000_00000_00000_00000_00000_00000_00000
+        if inplace: self.asic_update()
 
-    def enable_ampout_col(self, col: int):
-        """Select Col for analog mux and disable other cols
 
-        :param col: Col number
+    def enable_ampout_col(self, col: int, inplace:bool=True):
         """
+        Enables analog output, Select Col for analog mux and disable other cols
+
+        Takes:
+        col:int - Column to enable
+        inplace:bool - True - Updates asic after updating pixel mask
+        """
+        #Disable all analog pixels
         for i in range(self.num_cols):
-            self.asic_config['recconfig'][f'col{i}'][1] = self.asic_config['recconfig'][f'col{i}'][1] & 0b011_11111_11111_11111_11111_11111_11111_11111
+            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'][f'col{col}'][1] & 0b011_11111_11111_11111_11111_11111_11111_11111
 
+        #Enable analog pixel in column <col>
         self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'][f'col{col}'][1] | 0b100_00000_00000_00000_00000_00000_00000_00000
+        
+        if inplace: self.asic_update()
 
-    def enable_pixel(self, col: int, row: int):
-        """Enable pixel comparator for specified pixel
+    def enable_pixel(self, col: int, row: int, inplace:bool=True):
+        """
+        Turns on comparator in specified pixel
 
-        :param col: Col number
-        :param row: Row number
+        Takes:
+        col: int - Column of pixel
+        row: int - Row of pixel
+        inplace:bool - True - Updates asic after updating pixel mask
         """
         if(row < self.num_rows and col < self.num_cols):
             self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & ~(2 << row)
 
-    def disable_pixel(self, col: int, row: int):
-        """Disable pixel comparator for specified pixel
+        if inplace: self.asic_update()
 
-        :param col: Col number
-        :param row: Row number
+    def disable_pixel(self, col: int, row: int, inplace:bool=True):
+        """
+        Disable comparator in specified pixel
+
+        Takes:
+        col: int - Column of pixel
+        row: int - Row of pixel
+        inplace:bool - True - Updates asic after updating pixel mask
         """
         if(row < self.num_rows and col < self.num_cols):
             self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | (2 << row)
+        if inplace: self.asic_update()
+
 
     def disable_inj_row(self, row: int):
         """Disable row injection switch
-
         :param row: Row number
         """
         if(row < self.num_rows):
             self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b111_11111_11111_11111_11111_11111_11111_11110
 
+
     def disable_inj_col(self, col: int):
         """Disable col injection switch
-
         :param col: Col number
         """
         if(col < self.num_cols):
             self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b101_11111_11111_11111_11111_11111_11111_11111
 
     def get_pixel(self, col: int, row: int):
-        """Check if Pixel is enabled
-
-        :param col: Col number
-        :param row: Row number
         """
-        if(row < self.num_rows):
-            if( self.asic_config['recconfig'].get(f'col{col}')[1] & (1<<(row+1))):
+        Checks if a given pixel is enabled
+
+        Takes:
+        col: int - column of pixel
+        row: int - row of pixel
+        """
+        if(row < self._num_rows):
+            if( self.recconfig.get(f'ColConfig{col}') & (1<<(row+1))):
                 return False
             else:
                 return True
-
     def reset_recconfig(self):
         """Reset recconfig by disabling all pixels and disabling all injection switches and mux ouputs
         """
         for key in self.asic_config['recconfig']:
             self.asic_config['recconfig'][key][1] = 0b001_11111_11111_11111_11111_11111_11111_11110
+    
+    def _construct_asic_vector(self, msbfirst:bool = False) -> BitArray:
+        """Generate asic bitvector from digital, bias and dacconfig
 
-    @staticmethod
-    def __int2nbit(value: int, nbits: int) -> BitArray:
+        :param msbfirst: Send vector MSB first
+        """
+        bitvector = BitArray()
+
+        for key in self.asic_config:
+            logger.debug(key)
+            for values in self.asic_config[key].values():
+                bitvector.append(self.__int2nbit(values[1], values[0]))
+                logger.debug(self.__int2nbit(values[1], values[0]))
+
+        if not msbfirst:
+            bitvector.reverse()
+
+        logger.debug(bitvector)
+
+        return bitvector    
+
+    def __int2nbit(self,value: int, nbits: int) -> BitArray:
         """Convert int to 6bit bitarray
 
         :param value: Integer value
@@ -162,81 +237,7 @@ class Asic(Nexysio):
         except ValueError:
             print(f'Allowed Values 0 - {2**nbits-1}')
 
-    def load_conf_from_yaml(self, chipversion: int, filename: str):
-        """Load ASIC config from yaml
-
-
-        :param filename: Name of yml file in config folder
-        """
-        self.chipversion = chipversion
-
-        with open(f"config/{filename}.yml", "r") as stream:
-            try:
-                dict_from_yml = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                logger.error(exc)
-
-        try:
-            self.asic_config = dict_from_yml.get(f'astropix{chipversion}')['config']
-            logger.info(f"Astropix{chipversion} config found!")
-        except:
-            logger.error(f"Astropix{chipversion} config not found")
-
-        try:
-            self.num_cols = dict_from_yml[f'astropix{chipversion}'].get('geometry')['cols']
-            self.num_rows = dict_from_yml[f'astropix{chipversion}'].get('geometry')['rows']
-            logger.info(f"Astropix{chipversion} matrix dimensions found!")
-        except:
-            logger.error(f"Astropix{chipversion} matrix dimensions not found!")
-
-    def write_conf_to_yaml(self, chipversion: int, filename: str):
-        """Write ASIC config to yaml
-
-        :param chipversion: Name of yml file in config folder
-        :param filename: Name of yml file in config folder
-        """
-        with open(f"config/{filename}.yml", "w") as stream:
-            try:
-                yaml.dump({f"astropix{chipversion}": \
-                    {
-                        "geometry": {"cols": self.num_cols, "rows": self.num_rows},\
-                        "config" : self.asic_config}\
-                    },
-                    stream, default_flow_style=False, sort_keys=False)
-
-            except yaml.YAMLError as exc:
-                logger.error(exc)
-
-
-    def gen_asic_vector(self, msbfirst: bool = False) -> BitArray:
-        """Generate asic bitvector from digital, bias and dacconfig
-
-        :param msbfirst: Send vector MSB first
-        """
-
-        bitvector = BitArray()
-
-        for key in self.asic_config:
-            for values in self.asic_config[key].values():
-                bitvector.append(self.__int2nbit(values[1], values[0]))
-
-        if not msbfirst:
-            bitvector.reverse()
-
-        return bitvector
-
-    def update_asic(self) -> None:
-        """Update ASIC"""
-
-        if self.chipversion == 1:
-            dummybits = self.gen_asic_pattern(BitArray(uint=0, length=245), True) # Not needed for v2
-            self.write(dummybits)
-
-        # Write config
-        asicbits = self.gen_asic_pattern(self.gen_asic_vector(), True)
-        self.write(asicbits)
-
     def readback_asic(self):
         asicbits = self.gen_asic_pattern(self.gen_asic_vector(), True, readback_mode = True)
         print(asicbits)
-        self.write(asicbits)
+        self.nexys.write(asicbits)

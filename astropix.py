@@ -13,6 +13,7 @@ from core.nexysio import Nexysio
 from core.decode import Decode
 from core.injectionboard import Injectionboard
 from core.voltageboard import Voltageboard
+from core.asic import Asic
 from bitstring import BitArray
 from tqdm import tqdm
 import pandas as pd
@@ -45,9 +46,6 @@ class astropix2:
         # to put in custom configurations and allows for less writing to the chip,
         # only doing it once at init or when settings need to be changed as opposed to 
         # each time a parameter is changed.
-        self._num_rows = 35
-        self._num_cols = 35
-        self.asic_config = None
 
         if offline:
             logger.info("Creating object for offline analysis")
@@ -84,14 +82,14 @@ class astropix2:
                 logger.error(exc)
 
         try:
-            self.asic_config = dict_from_yml.get(f'astropix{chipversion}')['config']
+            self.asic.asic_config = dict_from_yml.get(f'astropix{chipversion}')['config']
             logger.info(f"Astropix{chipversion} config found!")
         except:
             logger.error(f"Astropix{chipversion} config not found")
 
         try:
-            self.num_cols = dict_from_yml[f'astropix{chipversion}'].get('geometry')['cols']
-            self.num_rows = dict_from_yml[f'astropix{chipversion}'].get('geometry')['rows']
+            self.asic._num_cols = dict_from_yml[f'astropix{chipversion}'].get('geometry')['cols']
+            self.asic._num_rows = dict_from_yml[f'astropix{chipversion}'].get('geometry')['rows']
             logger.info(f"Astropix{chipversion} matrix dimensions found!")
         except:
             logger.error(f"Astropix{chipversion} matrix dimensions not found!")
@@ -106,8 +104,8 @@ class astropix2:
             try:
                 yaml.dump({f"astropix{chipversion}": \
                     {
-                        "geometry": {"cols": self.num_cols, "rows": self.num_rows},\
-                        "config" : self.asic_config}\
+                        "geometry": {"cols": self.asic._num_cols, "rows": self.asic._num_rows},\
+                        "config" : self.asic.asic_config}\
                     },
                     stream, default_flow_style=False, sort_keys=False)
 
@@ -130,51 +128,51 @@ class astropix2:
         analog_col: int - Sets a column to readout analog data from. 
         """
 
-
         # Now that the asic has been initalized we can go and make this true
         self._asic_start = True
-        # The use of update methods on the dictionary allows for only the keys that 
-        # need changing to be passed to the function (hopefully) simplifying the interface
+
+        self.asic = Asic(self.handle, self.nexys)
+
+        #Override yaml if arguments were given in run script
+        if bias_setup is not None:
+            self.biasconfig.update(bias_setup)
+        if dac_setup is not None:
+            self.dacconfig.update(dac_setup)
         
         # Get config values from YAML
         try:
             self.load_conf_from_yaml(yaml)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml')
-        #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. If any changes are made, make change to self.asic_config so that it is reflected on-chip when asic_update is called
-
-        #Override yaml if arugments were given in run script
-        if bias_setup is not None:
-            self.biasconfig.update(bias_setup)
-        if dac_setup is not None:
+        #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
+        #If any changes are made, make change to self.asic_config so that it is reflected on-chip when 
+        # asic_update is called
             self.dacconfig.update(dac_setup)
 
-        ##analog output
-        if (analog_col is not None) and (analog_col <= self._num_cols):
+        # Set analog output
+        if (analog_col is not None) and (analog_col <= self.asic._num_cols):
             logger.info(f"enabling analog output in column {analog_col}")
-            self.enable_ampout_col(analog_col, inplace=False)
+            self.asic.enable_ampout_col(analog_col, inplace=False)
 
         # Turns on injection if so desired 
         if self.injection_col is not None:
-            self.enable_inj_col(self.injection_col, inplace=False)
-            self.enable_inj_row(self.injection_row, inplace=False)
+            self.asic.enable_inj_col(self.injection_col, inplace=False)
+            self.asic.enable_inj_row(self.injection_row, inplace=False)
 
-        # Loads it to the chip
+        # Load config it to the chip
         logger.info("LOADING TO ASIC...")
         self.asic_update()
         logger.info("ASIC SUCCESSFULLY CONFIGURED")
 
+    #Interface with asic.py 
+    def enable_pixel(self, col: int, row: int, inplace:bool=True):
+       self.asic.enable_pixel(col, row, inplace)
+
     # The method to write data to the asic. Called whenever somthing is changed
     # or after a group of changes are done. Taken straight from asic.py.
     def asic_update(self):
-        """
-        Remakes configbits and writes to asic. 
-        Takes no input and does not return
-        """
-        self.nexys.chip_reset()
-        asicbits = self.nexys.gen_asic_pattern(self._construct_asic_vector(), True)
-        self.nexys.write(asicbits)
-        logger.info("Wrote configbits successfully")
+        self.nexys.chip_reset()        
+        self.asic.asic_update()
 
 
     # Methods to update the internal variables. Please don't do it manually
@@ -188,15 +186,14 @@ class astropix2:
         """
         if self.asic_start:
             if bias_cfg is not None:
-                self.asic_config['biasconfig'].update(bias_cfg)
+                self.asic.asic_config['biasconfig'].update(bias_cfg)
             if dac_cfg is not None:
-                self.asic_config['idacs'].update(dac_cfg)
+                self.asic.asic_config['idacs'].update(dac_cfg)
             else: 
                 logger.info("update_asic_config() got no argumennts, nothing to do.")
                 return None
             self.asic_update()
         else: raise RuntimeError("Asic has not been initalized")
-
 
     def enable_spi(self):
         """
@@ -376,17 +373,17 @@ class astropix2:
         """
         #Get config dictionaries from yaml
         digitalconfig = {}
-        for key in self.asic_config['digitalconfig']:
-                digitalconfig[key]=self.asic_config['digitalconfig'][key][1]
+        for key in self.asic.asic_config['digitalconfig']:
+                digitalconfig[key]=self.asic.asic_config['digitalconfig'][key][1]
         biasconfig = {}
-        for key in self.asic_config['biasconfig']:
-                biasconfig[key]=self.asic_config['biasconfig'][key][1]
+        for key in self.asic.asic_config['biasconfig']:
+                biasconfig[key]=self.asic.asic_config['biasconfig'][key][1]
         dacconfig = {}
-        for key in self.asic_config['idacs']:
-                dacconfig[key]=self.asic_config['idacs'][key][1]
+        for key in self.asic.asic_config['idacs']:
+                dacconfig[key]=self.asic.asic_config['idacs'][key][1]
         arrayconfig = {}
-        for key in self.asic_config['recconfig']:
-                arrayconfig[key]=self.asic_config['recconfig'][key][1]
+        for key in self.asic.asic_config['recconfig']:
+                arrayconfig[key]=self.asic.asic_config['recconfig'][key][1]
 
         # This is not a nice line, but its the most efficent way to get all the values in the same place.
         return f"Voltageboard settings: {self.vboard.dacvalues}\n" + f"Digital: {digitalconfig}\n" +f"Biasblock: {biasconfig}\n" + f"DAC: {dacconfig}\n" + f"Receiver: {arrayconfig}\n"
@@ -484,7 +481,6 @@ class astropix2:
     # _test_io(): A function to read and write a register on the chip to see if 
     # everythign is working. 
     # It takes no arguments 
-
     def _test_io(self):
         try:    # Attempts to write to and read from a register
             self.nexys.write_register(0x09, 0x55, True)
@@ -493,196 +489,6 @@ class astropix2:
             self.nexys.sr_readback_reset()
         except Exception: 
             raise RuntimeError("Could not read or write from astropix!")
-
-    # Function to construct the reconfig dictionary. This code is taken from 
-    # asic.py.
- 
-    # Methods from updated asic.py
-    @property
-    def num_cols(self):
-        """Get/set number of columns
-
-        :returns: Number of columns
-        """
-        return self._num_cols
-
-    @num_cols.setter
-    def num_cols(self, cols):
-        self._num_cols = cols
-
-    @property
-    def num_rows(self):
-        """Get/set number of rows
-
-        :returns: Number of rows
-        """
-        return self._num_rows
-
-    @num_rows.setter
-    def num_rows(self, rows):
-        self._num_rows = rows
-        
-    def get_num_cols(self):
-        """Get number of columns
-        :returns: Number of columns
-        """
-        return self._num_cols
-
-    def get_num_rows(self):
-        """Get number of rows
-        :returns: Number of rows
-        """
-        return self._num_rows
-
-    def enable_inj_row(self, row: int, inplace:bool=True):
-        """
-        Enable injection in specified row
-
-        Takes:
-        row: int -  Row number
-        inplace:bool - True - Updates asic after updating pixel mask
-
-        """
-
-        if(row < self.num_rows):
-            self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | 0b000_00000_00000_00000_00000_00000_00000_00001
-        
-        if inplace: self.asic_update()
-
-    def enable_inj_col(self, col: int, inplace:bool=True):
-        """
-        Enable injection in specified column
-
-        Takes:
-        col: int -  Column number
-        inplace:bool - True - Updates asic after updating pixel mask
-"""
-        if(col < self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | 0b010_00000_00000_00000_00000_00000_00000_00000
-        if inplace: self.asic_update()
-
-
-    def enable_ampout_col(self, col: int, inplace:bool=True):
-        """
-        Enables analog output, Select Col for analog mux and disable other cols
-
-        Takes:
-        col:int - Column to enable
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        #Disable all analog pixels
-        for i in range(self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'][f'col{col}'][1] & 0b011_11111_11111_11111_11111_11111_11111_11111
-
-        #Enable analog pixel in column <col>
-        self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'][f'col{col}'][1] | 0b100_00000_00000_00000_00000_00000_00000_00000
-        
-        if inplace: self.asic_update()
-
-    def enable_pixel(self, col: int, row: int, inplace:bool=True):
-        """
-        Turns on comparator in specified pixel
-
-        Takes:
-        col: int - Column of pixel
-        row: int - Row of pixel
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        if(row < self.num_rows and col < self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & ~(2 << row)
-
-        if inplace: self.asic_update()
-
-    def disable_pixel(self, col: int, row: int, inplace:bool=True):
-        """
-        Disable comparator in specified pixel
-
-        Takes:
-        col: int - Column of pixel
-        row: int - Row of pixel
-        inplace:bool - True - Updates asic after updating pixel mask
-        """
-        if(row < self.num_rows and col < self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] | (2 << row)
-        if inplace: self.asic_update()
-
-
-    def disable_inj_row(self, row: int):
-        """Disable row injection switch
-        :param row: Row number
-        """
-        if(row < self.num_rows):
-            self.asic_config['recconfig'][f'col{row}'][1] = self.asic_config['recconfig'].get(f'col{row}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b111_11111_11111_11111_11111_11111_11111_11110
-
-
-    def disable_inj_col(self, col: int):
-        """Disable col injection switch
-        :param col: Col number
-        """
-        if(col < self.num_cols):
-            self.asic_config['recconfig'][f'col{col}'][1] = self.asic_config['recconfig'].get(f'col{col}', 0b001_11111_11111_11111_11111_11111_11111_11110)[1] & 0b101_11111_11111_11111_11111_11111_11111_11111
-
-    def get_pixel(self, col: int, row: int):
-        """
-        Checks if a given pixel is enabled
-
-        Takes:
-        col: int - column of pixel
-        row: int - row of pixel
-        """
-        if(row < self._num_rows):
-            if( self.recconfig.get(f'ColConfig{col}') & (1<<(row+1))):
-                return False
-            else:
-                return True
-    def reset_recconfig(self):
-        """Reset recconfig by disabling all pixels and disabling all injection switches and mux ouputs
-        """
-        for key in self.asic_config['recconfig']:
-            self.asic_config['recconfig'][key][1] = 0b001_11111_11111_11111_11111_11111_11111_11110
-
-
-    # This is from asic.py, and it essentially takes all the parameters and puts
-    # them into a form ready to be loaded onto the board.
-    # Parameters: msbfirst: Send vector MSB first
-    
-    def _construct_asic_vector(self, msbfirst:bool = False) -> BitArray:
-        """Generate asic bitvector from digital, bias and dacconfig
-
-        :param msbfirst: Send vector MSB first
-        """
-        bitvector = BitArray()
-
-        for key in self.asic_config:
-            logger.debug(key)
-            for values in self.asic_config[key].values():
-                bitvector.append(self.__int2nbit(values[1], values[0]))
-                logger.debug(self.__int2nbit(values[1], values[0]))
-        """
-        for values in self.asic_config['biasconfig'].values():
-            bitvector.append(self.__int2nbit(values[1], values[0]))
-        """
-
-        if not msbfirst:
-            bitvector.reverse()
-
-        logger.debug(bitvector)
-
-        return bitvector    
-
-    def __int2nbit(self,value: int, nbits: int) -> BitArray:
-        """Convert int to 6bit bitarray
-
-        :param value: Integer value
-        :param nbits: Number of bits
-
-        :returns: Bitarray of specified length
-        """
-
-        try:
-            return BitArray(uint=value, length=nbits)
-        except ValueError:
-            print(f'Allowed Values 0 - {2**nbits-1}')
 
     # progress bar 
     def _wait_progress(self, seconds:int):
