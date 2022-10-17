@@ -65,12 +65,9 @@ def main(args):
     #Initiate asic with pixel mask as defined in yaml and analog pixel in row0 defined with input argument -a
     astro.asic_init(yaml=ymlpath, analog_col = args.analog)
 
-    #If injection, ensure injection pixel is enabled
+    #If injection, ensure injection pixel is enabled and initialize
     if args.inject is not None:
         astro.enable_pixel(args.inject[1],args.inject[0])    
-
-    # If injection is on initalize the board
-    if args.inject is not None:
         astro.init_injection(inj_voltage=args.vinj)
 
     #Enable final configuration
@@ -279,8 +276,7 @@ if __name__ == "__main__":
     elif ll == 'C':
         loglevel = logging.CRITICAL
     
-    # Logging stuff!
-    # This was way harder than I expected...
+    # Logging 
     formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
     fh = logging.FileHandler(logname)
     fh.setFormatter(formatter)

@@ -58,9 +58,14 @@ def main(args,row,col,injectPix):
     else:
         astro = astropix2() #initialize without enabling injections
 
-    # Initialie asic - blank array, no pixels enabled
-    astro.asic_init()
-    astro.init_voltages(vthreshold=args.threshold)
+    astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
+
+    #Define YAML path variables
+    pathdelim=os.path.sep #determine if Mac or Windows separators in path name
+    ymlpath="config"+pathdelim+args.yaml+".yml"
+
+    #Initiate asic with pixel mask as defined in yaml 
+    astro.asic_init(yaml=ymlpath)
 
     #Enable single pixel in (col,row)
     #Updates asic by default
@@ -99,6 +104,9 @@ def main(args,row,col,injectPix):
                 'hittime'
         ])
 
+    # Save final configuration to output file    
+    ymlpathout="config"+pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    astro.write_conf_to_yaml(ymlpathout)
     # And here for the text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
@@ -177,6 +185,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outdir', default='.', required=False,
                     help='Output Directory for all datafiles')
+
+    parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
+                    help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
     
     parser.add_argument('-c', '--saveascsv', action='store_true', 
                     default=False, required=False, 
@@ -206,7 +217,7 @@ if __name__ == "__main__":
     parser.add_argument
     args = parser.parse_args()
     
-    # Logging stuff!
+    # Logging
     loglevel = logging.INFO
     formatter = logging.Formatter('%(asctime)s:%(msecs)d.%(name)s.%(levelname)s:%(message)s')
     fh = logging.FileHandler(logname)

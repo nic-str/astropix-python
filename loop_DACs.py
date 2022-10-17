@@ -58,14 +58,18 @@ def main(args,dac):
     else:
         astro = astropix2() #initialize without enabling injections
 
-    # Initialie asic - blank array, no pixels enabled, analog enabled for defined pixel or (0,0) by default
-    if args.DAC!="":
-        astro.asic_init(dac_setup={args.DAC: dac},analog_col = args.analog)
-    else:
-        astro.asic_init(analog_col = args.analog)
- 
     astro.init_voltages(vthreshold=args.threshold)
 
+    #Define YAML path variables
+    pathdelim=os.path.sep #determine if Mac or Windows separators in path name
+    ymlpath="config"+pathdelim+args.yaml+".yml"
+
+    # Initialie asic - blank array, no pixels enabled, analog enabled for defined pixel or (0,0) by default
+    if args.DAC!="":
+        astro.asic_init(yaml=ymlpath, dac_setup={args.DAC: dac},analog_col = args.analog)
+    else:
+        astro.asic_init(yaml=ymlpath, analog_col = args.analog)
+ 
     #Enable single pixel from argument, or (0,0) if no pixel given
     astro.enable_pixel(args.pixel[1],args.pixel[0])
 
@@ -102,6 +106,9 @@ def main(args,dac):
                 'hittime'
         ])
 
+    # Save final configuration to output file    
+    ymlpathout="config"+pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    astro.write_conf_to_yaml(ymlpathout)
     # And here for the text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
     # textfiles are always saved so we open it up 
@@ -180,6 +187,10 @@ if __name__ == "__main__":
 
     parser.add_argument('-o', '--outdir', default='.', required=False,
                     help='Output Directory for all datafiles')
+
+    parser.add_argument('-y', '--yaml', action='store', required=False, type=str, default = 'testconfig',
+                    help = 'filepath (in config/ directory) .yml file containing chip configuration. Default: config/testconfig.yml (All pixels off)')
+
     
     parser.add_argument('-c', '--saveascsv', action='store_true', 
                     default=False, required=False, 
