@@ -31,7 +31,7 @@ class astropix2:
     # Init just opens the chip and gets the handle. After this runs
     # asic_config also needs to be called to set it up. Seperating these 
     # allows for simpler specifying of values. 
-    def __init__(self, clock_period_ns = 10, inject:int = None, offline:bool=False):
+    def __init__(self, clock_period_ns = 5, inject:int = None, offline:bool=False):
         """
         Initalizes astropix object. 
         No required arguments
