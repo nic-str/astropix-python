@@ -104,7 +104,7 @@ def main(args):
         ])
 
     # Save final configuration to output file    
-    ymlpathout="config"+pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    ymlpathout=args.outdir +pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
     astro.write_conf_to_yaml(ymlpathout)
     # Prepare text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
