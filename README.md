@@ -136,6 +136,8 @@ It has the ability to:
 - Configure threshold and injection voltages 
 - Enable digital output based on pixel masks 
 
+CAUTION : try not to pass arguments to astropix.py as numpy objects - if looping through a numpy array, typecast to int, float, etc for the argument call or features may not work as intended (ie - pixels may not be activated/deactivated as expected)
+
 Options:
 | Argument | Usage | Purpose | Default |
 | :--- | :--- | :---  | :--- |
