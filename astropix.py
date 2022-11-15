@@ -52,8 +52,9 @@ class astropix2:
         else:
             self._asic_start = False
             self.nexys = Nexysio()
-            self.handle = self.nexys.autoopen()
             self._wait_progress(2)
+            self.handle = self.nexys.autoopen() 
+                
             # Ensure it is working
             logger.info("Opened FPGA, testing...")
             self._test_io()
