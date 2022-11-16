@@ -1,6 +1,8 @@
 """
-Simple script to loop through pixels enabling one at a time, using astropix.py
-Based off beam_test.py
+Script to loop through pixels enabling one at a time, using astropix.py. 
+For a variety of threshold values, loop over full array and only record the number of times 
+the comparator would have fired. 
+Based off beam_test.py and example_loop.py
 
 Author: Amanda Steinhebel
 """
