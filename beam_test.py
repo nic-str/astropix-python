@@ -197,7 +197,7 @@ def main(args):
             csvframe.index.name = "dec_order"
             csvframe.to_csv(csvpath) 
         if args.inject is not None: astro.stop_injection()   
-        bitfile.close() # Close open file        if args.inject: astro.stop_injection()   #stops injection
+        bitfile.close() # Close open file        
         astro.close_connection() # Closes SPI
         logger.info("Program terminated successfully")
     # END OF PROGRAM
