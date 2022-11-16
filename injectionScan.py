@@ -86,7 +86,7 @@ def main(args,fpgaCon:bool=True, fpgaDiscon:bool=True):
     errors = 0 # Sets the threshold 
     if args.maxtime is not None: 
         end_time=time.time()+(args.maxtime*60.)
-    fname="" if not args.name else args.name+"_"
+    fname="" if not args.name else newname+"_"
 
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
@@ -295,6 +295,6 @@ if __name__ == "__main__":
 
     injs = [100, 200, 300, 400, 500, 600, 700, 800, 900]
     for i,inj in enumerate(injs):
-
+        newname = args.name + "_" + str(inj) + "mVinj"
         args.vinj = inj
         main(args)
