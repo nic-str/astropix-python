@@ -41,7 +41,7 @@ def main(args,row,col,dataF, fpgaCon:bool=True, fpgaDiscon:bool=True):
         logger.info('Initiate FPGA connection')
         astro = astropix2() #initialize without enabling injections
 
-        astro.init_voltages(vthreshold=args.threshold) 
+    astro.init_voltages(vthreshold=args.threshold) 
 
     #Define YAML path variables
     pathdelim=os.path.sep #determine if Mac or Windows separators in path name
@@ -162,7 +162,9 @@ if __name__ == "__main__":
     threshs = [25., 50., 75., 100., 150., 200.]
     for t in threshs:
         args.threshold = t
-        outdir = args.outdir + str(args.threshold)[:-2] + 'mV'
+        outdir = args.outdir + "/" + str(args.threshold)[:-2] + 'mV'
+        if os.path.exists(outdir) == False:
+            os.mkdir(outdir)
         #loop over full array by default, unless bounds are given as argument
         for c in range(args.colrange[0],args.colrange[1]+1,1):
             interrpath = outdir + '/counts_' + str(args.threshold)[:-2] + 'mVThresh_' + args.name +'_col' + str(c) + "_"+ time.strftime("%Y%m%d-%H%M%S") + '.txt'
