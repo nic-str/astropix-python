@@ -36,22 +36,22 @@ astropix2:
             blres:              [6, 0]
             nu1:                [6, 0]
             vn1:                [6, 20]
-            vnfb:               [6, 1]
+            vnfb:               [6, 1] #3
             vnfoll:             [6, 10]
             nu5:                [6, 0]
             nu6:                [6, 0]
             nu7:                [6, 0]
             nu8:                [6, 0]
             vn2:                [6, 0]
-            vnfoll2:            [6, 1]
-            vnbias:             [6, 10]
+            vnfoll2:            [6, 1] #4
+            vnbias:             [6, 10] #0
             vpload:             [6, 5]
             nu13:               [6, 0]
             vncomp:             [6, 2]
             vpfoll:             [6, 60]
             nu16:               [6, 0]
-            vprec:              [6, 60]
-            vnrec:              [6, 30]
+            vprec:              [6, 60] #15
+            vnrec:              [6, 30] #2
 
         recconfig:
             col0:               [38, 0b001_11111_11111_11111_11111_11111_11111_11110]
