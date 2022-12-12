@@ -58,12 +58,8 @@ def main(args):
 
     astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
 
-    #Define YAML path variables
-    pathdelim=os.path.sep #determine if Mac or Windows separators in path name
-    ymlpath="config"+pathdelim+args.yaml+".yml"
-
     #Initiate asic with pixel mask as defined in yaml and analog pixel in row0 defined with input argument -a
-    astro.asic_init(yaml=ymlpath, analog_col = args.analog)
+    astro.asic_init(yaml=args.yaml, analog_col = args.analog)
 
     #If injection, ensure injection pixel is enabled and initialize
     if args.inject is not None:
@@ -104,7 +100,7 @@ def main(args):
         ])
 
     # Save final configuration to output file    
-    ymlpathout=args.outdir +pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    ymlpathout=args.outdir +"/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
     astro.write_conf_to_yaml(ymlpathout)
     # Prepare text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'

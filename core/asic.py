@@ -106,7 +106,7 @@ class Asic(Nexysio):
     def num_chips(self, chips):
         self._num_chips = chips
 
-    def enable_inj_row(self, row: int):
+    def enable_inj_row(self, row: int, inplace:bool=True):
         """
         Enable injection in specified row
 
@@ -231,16 +231,16 @@ class Asic(Nexysio):
 
     def load_conf_from_yaml(self, chipversion: int, filename: str, **kwargs) -> None:
         """Load ASIC config from yaml
-
-
+        :param chipversion: AstroPix version
         :param filename: Name of yml file in config folder
         """
+
         chipname = kwargs.get('chipname', 'astropix')
 
         self.chipversion = chipversion
         self.chipname = chipname
 
-        with open(f"config/{filename}.yml", "r", encoding="utf-8") as stream:
+        with open(f"{filename}", "r", encoding="utf-8") as stream:
             try:
                 dict_from_yml = yaml.safe_load(stream)
             except yaml.YAMLError as exc:

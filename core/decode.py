@@ -47,11 +47,7 @@ class Decode:
         hitlist = []
         i=0
 
-        #require one idle byte
-        #idle_byte = 0xbc if reverse_bitorder else 0x3d
-        #require two idle bytes
-        idle_byte = 0xbcbc if reverse_bitorder else 0x3d3d
-
+        idle_byte = 0xbc if reverse_bitorder else 0x3d
 
         while i < length:
             if readout[i] == idle_byte or readout[i] == 0xff:

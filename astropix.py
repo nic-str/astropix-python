@@ -20,6 +20,7 @@ import pandas as pd
 import regex as re
 import time
 import yaml
+import os
 
 # Logging stuff
 import logging
@@ -74,10 +75,12 @@ class astropix2:
 #writing done here
 
     def write_conf_to_yaml(self, filename:str = None):
-     """Write ASIC config to yaml
-        :param chipversion: Name of yml file in config folder
+        """
+        Write ASIC config to yaml
+        :param chipversion: chip version
         :param filename: Name of yml file in config folder
         """
+
         dicttofile ={self.asic.chip:
             {
                 "telescope": {"nchips": self.asic.num_chips},
@@ -91,7 +94,7 @@ class astropix2:
         else:
             dicttofile[self.asic.chip]['config'] = self.asic.asic_config
 
-        with open(f"config/{filename}.yml", "w", encoding="utf-8") as stream:
+        with open(f"{filename}", "w", encoding="utf-8") as stream:
             try:
                 yaml.dump(dicttofile, stream, default_flow_style=False, sort_keys=False)
 
@@ -120,8 +123,13 @@ class astropix2:
         self.asic = Asic(self.handle, self.nexys)
 
         # Get config values from YAML
+        #set chip version
+        self.asic.chipversion=2
+        #Define YAML path variables
+        pathdelim=os.path.sep #determine if Mac or Windows separators in path name
+        ymlpath="."+pathdelim+"config"+pathdelim+yaml+".yml"
         try:
-            self.asic.load_conf_from_yaml(yaml)
+            self.asic.load_conf_from_yaml(self.asic.chipversion, ymlpath)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml')
         #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
