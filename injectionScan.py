@@ -1,8 +1,7 @@
 """
-Updated version of beam_test.py using the astropix.py module
+Script to loop through injection voltage values enabling a single pixel. Test all injection values on one pixel
 
-Author: Autumn Bauman 
-Maintained by: Amanda Steinhebel, amanda.l.steinhebel@nasa.gov
+Author: Amanda Steinhebel
 """
 
 #from msilib.schema import File
@@ -47,19 +46,26 @@ decode_fail_frame = pd.DataFrame({
   
 
 #Initialize
-def main(args):
+def main(args,fpgaCon:bool=True, fpgaDiscon:bool=True):
 
     # Ensures output directory exists
     if os.path.exists(args.outdir) == False:
         os.mkdir(args.outdir)
         
-    # Prepare everything, create the object
-    astro = astropix2(inject=args.inject) #no updates in YAML
+    if fpgaCon:
+        # Prepare everything, create the object
+        global astro 
+        logger.info('Initiate FPGA connection')
+        astro = astropix2(inject=args.inject) #initialize without enabling injections
 
     astro.init_voltages(vthreshold=args.threshold) #no updates in YAML
 
+    #Define YAML path variables
+    pathdelim=os.path.sep #determine if Mac or Windows separators in path name
+    ymlpath="config"+pathdelim+args.yaml+".yml"
+
     #Initiate asic with pixel mask as defined in yaml and analog pixel in row0 defined with input argument -a
-    astro.asic_init(yaml=args.yaml, analog_col = args.analog)
+    astro.asic_init(yaml=ymlpath, analog_col = args.analog)
 
     #If injection, ensure injection pixel is enabled and initialize
     if args.inject is not None:
@@ -80,7 +86,7 @@ def main(args):
     errors = 0 # Sets the threshold 
     if args.maxtime is not None: 
         end_time=time.time()+(args.maxtime*60.)
-    fname="" if not args.name else args.name+"_"
+    fname="" if not args.name else newname+"_"
 
     # Prepares the file paths 
     if args.saveascsv: # Here for csv
@@ -100,7 +106,7 @@ def main(args):
         ])
 
     # Save final configuration to output file    
-    ymlpathout=args.outdir +"/"+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
+    ymlpathout=args.outdir +pathdelim+args.yaml+"_"+time.strftime("%Y%m%d-%H%M%S")+".yml"
     astro.write_conf_to_yaml(ymlpathout)
     # Prepare text files/logs
     bitpath = args.outdir + '/' + fname + time.strftime("%Y%m%d-%H%M%S") + '.log'
@@ -194,7 +200,9 @@ def main(args):
             csvframe.to_csv(csvpath) 
         if args.inject is not None: astro.stop_injection()   
         bitfile.close() # Close open file        
-        astro.close_connection() # Closes SPI
+        if fpgaDiscon:
+            astro.close_connection() # Closes SPI
+            logger.info('FPGA Connection ended')
         logger.info("Program terminated successfully")
     # END OF PROGRAM
 
@@ -285,5 +293,8 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
-    
-    main(args)
+    injs = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+    for i,inj in enumerate(injs):
+        newname = args.name + "_" + str(inj) + "mVinj"
+        args.vinj = inj
+        main(args)

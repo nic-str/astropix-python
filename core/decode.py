@@ -5,8 +5,8 @@ Created on Tue Dec 28 19:03:40 2021
 
 @author: Nicolas Striebig
 """
-import pandas as pd
 
+import pandas as pd
 import re
 import math
 import binascii
@@ -19,7 +19,7 @@ from modules.setup_logger import logger
 logger = logging.getLogger(__name__)
 
 class Decode:
-    def __init__(self, sampleclock_period_ns = 10):
+    def __init__(self, sampleclock_period_ns = 5):
         self.sampleclock_period_ns = sampleclock_period_ns
         self.bytesperhit = 5
 
@@ -119,6 +119,8 @@ class Decode:
 
         :returns: List of hits
         """
+
+        if type(readout) == list: readout=bytearray(readout)
 
         #Reverse Bitorder per byte
         if reverse_bitorder:

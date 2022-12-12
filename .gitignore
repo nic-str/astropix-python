@@ -139,3 +139,15 @@ cython_debug/
 
 #pylint
 .pylint.d/
+
+
+new-sensor-test.py
+astropy_validation.py
+test.py
+testdat.py
+beam_test_inj.py
+beam_test_old.py
+modules/asic.py
+archive/
+*.csv
+beam_test_play.py

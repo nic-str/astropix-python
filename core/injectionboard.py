@@ -8,7 +8,7 @@ Created on Sun Jun 27 21:03:43 2021
 
 import logging
 
-from modules.nexysio import Nexysio
+from core.nexysio import Nexysio
 from modules.setup_logger import logger
 
 PG_RESET    = 2
