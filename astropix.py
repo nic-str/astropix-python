@@ -171,6 +171,13 @@ class astropix2:
     def enable_pixel(self, col: int, row: int, inplace:bool=True):
        self.asic.enable_pixel(col, row, inplace)
 
+    #Turn on injection of different pixel than the one used in _init_
+    def enable_injection(self, col:int, row:int, inplace:bool=True):
+        #self.injection_col = col
+        #self.injection_row = row
+        self.asic.enable_inj_col(col, inplace)
+        self.asic.enable_inj_row(row, inplace)
+
     # The method to write data to the asic. Called whenever somthing is changed
     # or after a group of changes are done. Taken straight from asic.py.
     def asic_update(self):
