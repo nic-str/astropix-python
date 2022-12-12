@@ -12,7 +12,6 @@ import time
 
 import logging
 import binascii
-import time
 
 from core.spi import Spi
 from modules.setup_logger import logger
@@ -61,12 +60,14 @@ class Nexysio(Spi):
 
         return data
 
-    def debug_print(self, name: str, length: int, hbyte: int, lbyte: int, header: bytearray, value: bytearray):
+    def debug_print(self, name: str, length: int, hbyte: int, lbyte: int, 
+                    header: bytearray, value: bytearray):
         logger.debug(
-            f"\nWrite {name}\n==============================="
-            f"Length: {length} hByte: {hbyte} lByte: {lbyte}\n"
-            f"Header: 0x{header.hex()}"
-            f"Data ({len(value)} Bits): 0b{value.bin}\n"
+            "\nWrite %s\n===============================\
+            Length: %d hByte: %d lByte: %d\n\
+            Header: 0x%s\
+            Data (%d Bits): 0b%s\n",
+            name, length, hbyte, lbyte, header.hex(), len(value), value.bin
         )
 
     def open(self, index: int):
@@ -91,7 +92,7 @@ class Nexysio(Spi):
                 raise NameError
 
         except NameError:
-            logger.error(f'Unknown Device with index {index}')
+            logger.error('Unknown Device with index %d', index)
             sys.exit(1)
 
         self.__setup()
@@ -139,7 +140,7 @@ class Nexysio(Spi):
         """
         try:
             # split large vectors into multiple parts
-            while (len(value) > 64000):
+            while len(value) > 64000:
                 logger.debug("Split writevector in parts")
                 self._handle.write(value[0:63999])
                 value = value[64000:]
@@ -158,6 +159,7 @@ class Nexysio(Spi):
             return self._handle.read(num)
         except AttributeError:
             logger.error('Nexys Read Error')
+            return None
 
     def close(self) -> None:
         """Close connection"""
@@ -184,7 +186,7 @@ class Nexysio(Spi):
 
         :returns: Bytestring with write header and data
         """
-        logger.debug(f"Write Register {register} Value {hex(value)}")
+        logger.debug("Write Register %d Value %s", register, hex(value))
 
         data = [WRITE_ADRESS, register, 0x00, 0x01, value]
 
@@ -215,7 +217,7 @@ class Nexysio(Spi):
         if flush:
             self.write(bytes(data))
 
-        logger.debug(f"Write Register {register} Value {value} Data: {binascii.hexlify(data)}")
+        logger.debug("Write Register %d Value %s Data: %s", register, value, binascii.hexlify(data))
 
         return data
 
@@ -235,7 +237,7 @@ class Nexysio(Spi):
         self.write(bytes([READ_ADRESS, register, hbyte, lbyte]))
         answer = self.read(num)
 
-        logger.debug(f"Read Register {register} Value 0x{answer.hex()}")
+        logger.debug("Read Register %d Value 0x%s", register, answer.hex())
 
         return answer
 
@@ -281,7 +283,8 @@ class Nexysio(Spi):
         # concatenate header+dataasic
         return b''.join([header, data])
 
-    def gen_asic_pattern(self, value: bytearray, wload: bool, clkdiv: int = 8, readback_mode = False) -> bytes:
+    def gen_asic_pattern_part(self, value: bytearray, wload: bool, 
+                              clkdiv: int = 8, readback_mode = False) -> bytes:
         """
         Generate ASIC SR write pattern from bitvector
 
@@ -293,13 +296,13 @@ class Nexysio(Spi):
         """
 
         # Number of Bytes to write
-        
-        if not(readback_mode):
+
+        if not readback_mode:
             length = (len(value) * 5 + 30) * clkdiv
         else:
             length = ((len(value)+1) * 5) * clkdiv
 
-        logger.debug(f'Bytes to write: {length}\n')
+        logger.debug('Bytes to write: %d\n', length)
 
         hbyte = length >> 8
         lbyte = length % 256
@@ -310,14 +313,12 @@ class Nexysio(Spi):
 
         data, load = bytearray(), bytearray()
 
-        if not(readback_mode):
+        if not readback_mode:
         # data
             for bit in value:
                 pattern = SIN_ASIC if bit == 1 else 0
-                # Generate double clocked pattern
-                #data.extend([pattern, pattern | 1, pattern, pattern | 2, pattern])
-                data.extend([pattern, pattern | 1, pattern, pattern | 2, pattern])
 
+                data.extend([pattern, pattern | 1, pattern, pattern | 2, pattern]) # Generate double clocked pattern
 
             # Load signal
             if wload:
@@ -336,10 +337,47 @@ class Nexysio(Spi):
         # concatenate header+data
         return b''.join([header, data])
 
+    def gen_asic_pattern(self, value: bytearray, wload: bool, clkdiv: int = 8, 
+                         readback_mode = False) -> list:
+        """
+        Split asic data in parts
 
-        
+        :param value: Bytearray vector
+        :param wload: Send load signal
+        :param clkdiv: Clockdivider 0-65535
+
+        :returns: List of Bytearrays with ASIC configvector Header+Data
+        """
+
+        data = []
+
+        if not readback_mode:
+            logger.debug('Bytes to write: %d', (len(value) * 5 + 30) * clkdiv)
+            max_value = int((65534/clkdiv - 30)/5)
+        else:
+            logger.debug('Bytes to write: %d', ((len(value) + 1) * 5) * clkdiv)
+            max_value = int((65534/clkdiv)/5)-1
+
+        length = len(value)
+
+        while length >= max_value:
+            data.append(self.gen_asic_pattern_part(value[:max_value], False, clkdiv, readback_mode))
+            value=value[max_value + 1:]
+            length -= max_value
+        else:
+            data.append(self.gen_asic_pattern_part(value, wload, clkdiv, readback_mode))
+
+        return data
+
     def get_configregister(self):
+        """
+        Get SPI config register value
+
+        :returns: SPI config register value
+        """
         return int.from_bytes(self.read_register(0), 'big')
+
+
     def chip_reset(self) -> None:
         """
         Reset SPI
@@ -349,7 +387,7 @@ class Nexysio(Spi):
         # Set Reset bits 1
         configregister = self.set_bit(self.get_configregister(), 4)
         self.write_register(0, configregister, True)
-        time.sleep(1)
+        time.sleep(0.1)
         # Set Reset bits and readback bit 0
         configregister = self.clear_bit(self.get_configregister(), 4)
         self.write_register(0, configregister, True)

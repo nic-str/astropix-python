@@ -5,14 +5,9 @@ Created on Tue Jul 12 20:07:13 2021
 
 @author: Nicolas Striebig
 """
-import binascii
 import logging
-
-# from tqdm import tqdm
-
-from bitstring import BitArray
-
 from time import sleep
+from bitstring import BitArray
 
 from modules.setup_logger import logger
 
@@ -93,11 +88,7 @@ class Spi:
         length = len(value) * 5 + 4
 
         logger.info("SPI Write Asic Config\n")
-        logger.debug(
-            "SPI Write Asic Config"
-            f"Length: {length}\n"
-            f"Data ({len(value)} Bits): {value}\n"
-        )
+        logger.debug("Length: %d\n Data (%db): %s\n", length, len(value), value)
 
         # Write SPI SR Command to set MUX
         if broadcast:
@@ -146,7 +137,7 @@ class Spi:
         # Set Reset bits 1
         configregister = self.clear_bit(configregister, 7) if enable else self.set_bit(configregister, 7)
 
-        logger.debug(f'Configregister: {hex(configregister)}')
+        logger.debug('Configregister: %s', hex(configregister))
         self.write_register(SPI_CONFIG_REG, configregister, True)
 
     def spi_reset(self) -> None:
@@ -232,14 +223,9 @@ class Spi:
     def read_spi_fifo(self) -> bytearray:
         """ Read Data from SPI FIFO until empty """
 
-        idle_bytes = 0
-        count_hits = 0
-        idle_bytes_temp = 0
-
         read_stream = bytearray()
-        i=0
 
-        while not(self.get_spi_config() & 16):
+        while not self.get_spi_config() & 16:
             readbuffer = self.read_spi(64)
 
             read_stream.extend(readbuffer)
@@ -251,38 +237,14 @@ class Spi:
     def read_spi_fifo_readback(self) -> bytearray:
         """ Read Data from SPI FIFO until empty """
 
-        idle_bytes = 0
-        count_hits = 0
-        idle_bytes_temp = 0
-
         read_stream = bytearray()
-        i=0
 
-
-        while not(self.get_sr_readback_config() & 16):
+        while not self.get_sr_readback_config() & 16:
             readbuffer = self.read_spi_readback(8)
 
             read_stream.extend(readbuffer)
 
-            # if (readbuffer == b'\xaf\x2f\x2f\x2f\x2f\x2f\x2f\x2f') | (readbuffer == b'\x2f\x2f\x2f\x2f\x2f\x2f\x2f\x2f'):
-            #     idle_bytes += 1
-            #     idle_bytes_temp += 1
-            #     logger.debug('Read SPI: IDLE')
-            # else:
-            #     count_hits += 1
-
-            #     if (idle_bytes_temp > 0):
-            #         logger.debug(f'Read SPI: {idle_bytes_temp} IDLE Frames')
-            #         idle_bytes_temp = 0
-
-            #     logger.debug(f'Read SPI: {binascii.hexlify(readbuffer)}')
-
             sleep(0.01)
-
-        if idle_bytes > 0:
-            logger.info(f'Read SPI: {idle_bytes} IDLE Frames')
-
-        logger.info(f'Total {(idle_bytes+count_hits)*8}Bytes: Number of Frames with hits: {count_hits}')
 
         return read_stream
 
@@ -293,11 +255,11 @@ class Spi:
         :param n_bytes: Number of Bytes
         """
 
-        if(n_bytes > 64000):
-            n_bytes = 64000
+        if n_bytes > 64000:
+            #n_bytes = 64000
             logger.warning("Cannot write more than 64000 Bytes")
 
-        logger.info(f"SPI: Write {8 * n_bytes + 4} Bytes")
+        logger.info("SPI: Write %d Bytes", 8 * n_bytes + 4)
         self.write_spi(bytearray([SPI_HEADER_EMPTY] * n_bytes * 8), False, 8191)
 
     def send_routing_cmd(self) -> None:
@@ -326,7 +288,7 @@ class Spi:
 
                 data[index] = item_rev.uint
 
-        logger.debug(f'SPIdata: {data}')
+        logger.debug('SPIdata: %s', data)
 
         waiting = True
         i = 0

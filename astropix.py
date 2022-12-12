@@ -69,46 +69,31 @@ class astropix2:
         # Creates objects used later on
         self.decode = Decode(clock_period_ns)
 
-    ##################### YAML CONFIGURATION #########################
+##################### YAML INTERACTIONS #########################
+#reading done in core/asic.py
+#writing done here
 
-    # Methods to load/write configuration variables from/to YAML.
-    def load_conf_from_yaml(self, filename:str = None, chipversion:int = 2):
-        """Load ASIC config from yaml
-        :param filename: Name of yml file in config folder
-        """
-        with open(filename, "r") as stream:
-            try:
-                dict_from_yml = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                logger.error(exc)
-
-        try:
-            self.asic.asic_config = dict_from_yml.get(f'astropix{chipversion}')['config']
-            logger.info(f"Astropix{chipversion} config found!")
-        except:
-            logger.error(f"Astropix{chipversion} config not found")
-
-        try:
-            self.asic._num_cols = dict_from_yml[f'astropix{chipversion}'].get('geometry')['cols']
-            self.asic._num_rows = dict_from_yml[f'astropix{chipversion}'].get('geometry')['rows']
-            logger.info(f"Astropix{chipversion} matrix dimensions found!")
-        except:
-            logger.error(f"Astropix{chipversion} matrix dimensions not found!")
-
-    def write_conf_to_yaml(self, filename:str = None, chipversion:int = 2):
-        """Write ASIC config to yaml
-
+    def write_conf_to_yaml(self, filename:str = None):
+     """Write ASIC config to yaml
         :param chipversion: Name of yml file in config folder
         :param filename: Name of yml file in config folder
         """
-        with open(filename, "w") as stream:
+        dicttofile ={self.asic.chip:
+            {
+                "telescope": {"nchips": self.asic.num_chips},
+                "geometry": {"cols": self.asic.num_cols, "rows": self.asic.num_rows}
+            }
+        }
+
+        if self.asic.num_chips > 1:
+            for chip in range(self.asic.num_chips):
+                dicttofile[self.asic.chip][f'config_{chip}'] = self.asic.asic_config[f'config_{chip}']
+        else:
+            dicttofile[self.asic.chip]['config'] = self.asic.asic_config
+
+        with open(f"config/{filename}.yml", "w", encoding="utf-8") as stream:
             try:
-                yaml.dump({f"astropix{chipversion}": \
-                    {
-                        "geometry": {"cols": self.asic._num_cols, "rows": self.asic._num_rows},\
-                        "config" : self.asic.asic_config}\
-                    },
-                    stream, default_flow_style=False, sort_keys=False)
+                yaml.dump(dicttofile, stream, default_flow_style=False, sort_keys=False)
 
             except yaml.YAMLError as exc:
                 logger.error(exc)
@@ -136,7 +121,7 @@ class astropix2:
 
         # Get config values from YAML
         try:
-            self.load_conf_from_yaml(yaml)
+            self.asic.load_conf_from_yaml(yaml)
         except Exception:
             logger.error('Must pass a configuration file in the form of *.yml')
         #Config stored in dictionary self.asic_config . This is used for configuration in asic_update. 
@@ -145,12 +130,6 @@ class astropix2:
 
         #Override yaml if arguments were given in run script
         self.update_asic_config(bias_setup, dac_setup)
-        """
-        if bias_setup is not None:
-            self.biasconfig.update(bias_setup)
-        if dac_setup is not None:
-            self.dacconfig.update(dac_setup)
-        """
 
         # Set analog output
         if (analog_col is not None) and (analog_col <= self.asic._num_cols):
@@ -173,8 +152,6 @@ class astropix2:
 
     #Turn on injection of different pixel than the one used in _init_
     def enable_injection(self, col:int, row:int, inplace:bool=True):
-        #self.injection_col = col
-        #self.injection_row = row
         self.asic.enable_inj_col(col, inplace)
         self.asic.enable_inj_row(row, inplace)
 

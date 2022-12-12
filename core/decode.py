@@ -6,6 +6,7 @@ Created on Tue Dec 28 19:03:40 2021
 @author: Nicolas Striebig
 """
 
+import pandas as pd
 import re
 import math
 import binascii
@@ -17,12 +18,12 @@ from modules.setup_logger import logger
 
 logger = logging.getLogger(__name__)
 
-
 class Decode:
-    def __init__(self, sampleclock_period_ns = 10):
+    def __init__(self, sampleclock_period_ns = 5):
         self.sampleclock_period_ns = sampleclock_period_ns
+        self.bytesperhit = 5
 
-    def reverse_bitorder(self, data: bytearray):
+    def reverse_bitorder(self, data: bytearray) -> bytearray:
         for index, item in enumerate(data):
 
             item_rev = BitArray(uint=item, length=8)
@@ -32,52 +33,88 @@ class Decode:
 
         return data
 
-    def find_idle_bytes_pos(self, readout: bytearray,
-            start_seq: bytearray = b'(\x3d{2,})[\0-\x0F]', #b'(\x3d*)',
-            idle_seq: bytearray = b'(\x3d{2,})[\0-\x0F]',
-            end_seq: bytearray = b'(\x3d{2,})') -> list:
+    def hits_from_readoutstream(self, readout: bytearray, reverse_bitorder: bool = True) -> list:
         """
-            Find idle Bytes
+        Find hits in readoutstream
 
         :param readout: Readout stream
-        :param start_seq: Start sequence regex
-        :param idle_seq: Idle sequence regex
-        :param end_seq: end sequence regex
+        :param reverse_bitorder: Reverse Bitorder per byte
 
-        :returns: Tuples with idle byte strings start and stop pos
+        :returns: Position of hits in the datastream
         """
-        matches = []
 
-        # Look for start seq
-        start = re.search(start_seq, readout)
-        if start is not None:
-            matches.append((start.start(), start.end() - 1))
+        length = len(readout)
+        hitlist = []
+        i=0
 
-        # Find idle seqs and append to list
-        for index, match in enumerate(re.finditer(idle_seq, readout)):
-            match_start = match.start()
-            match_end = match.end() - 1
+        #require one idle byte
+        #idle_byte = 0xbc if reverse_bitorder else 0x3d
+        #require two idle bytes
+        idle_byte = 0xbcbc if reverse_bitorder else 0x3d3d
 
-            if len(matches) > 0:
-                match_start = matches[index][1] + math.ceil((match_start - matches[index][1]) / 5) * 5
 
-            matches.append((match_start, match_end))
+        while i < length:
+            if readout[i] == idle_byte or readout[i] == 0xff:
+                i += 1
+            else:
+                if reverse_bitorder:
+                    hitlist.append(self.reverse_bitorder(readout[i:i + self.bytesperhit]))
+                else:
+                    hitlist.append(readout[i : i + self.bytesperhit])
 
-        # Look for stop seq
-        stop = re.search(end_seq, readout[(matches[-1][1]):])
-        if stop is not None:
-            matches.append((matches[-1][1]+stop.start(), matches[-1][1]+stop.end()))
+                i += self.bytesperhit
 
-        # remove probably redundant first match
-        if len(matches) > 1:
-            if matches[0][1] == matches[1][1]:
-                del matches[1]
+        return hitlist
 
-        logger.info(f"Matches: {matches}")
+    def decode_astropix2_hits(self, list_hits: list) -> pd.DataFrame:
+        """
+        Decode 5byte Frames from AstroPix 2
 
-        return matches
+        Byte 0: Header      Bits:   7-3: ID
+                                    2-0: Payload
+        Byte 1: Location            7: Col
+                                    6: reserved
+                                    5-0: Row/Col
+        Byte 2: Timestamp
+        Byte 3: ToT MSB             7-4: 4'b0
+                                    3-0: ToT MSB
+        Byte 4: ToT LSB
 
-    def hits_from_readoutstream(self, readout: bytearray, reverse_bitorder: bool = True) -> list:
+        :param list_hists: List with all hits
+
+        :returns: Dataframe with decoded hits
+        """
+
+        hit_pd = []
+
+        for hit in list_hits:
+            if len(hit) == self.bytesperhit:
+                id          = int(hit[0]) >> 3
+                payload     = int(hit[0]) & 0b111
+                location    = int(hit[1])  & 0b111111
+                col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
+                timestamp   = int(hit[2])
+                tot_msb     = int(hit[3]) & 0b1111
+                tot_lsb     = int(hit[4])
+                tot_total   = (tot_msb << 8) + tot_lsb
+
+                #hit_pd = hit_pd.append({'id': id,'payload': payload,'location': location, 'col': col, 'timestamp': timestamp, 'tot_total': tot_total}, ignore_index=True)
+                hit_pd.append([id, payload, location, col, timestamp, tot_total])
+                logger.info(
+                    "Header: ChipId: %d\tPayload: %d\n"
+                    "Location: %d\tRow/Col: %d\n"
+                    "Timestamp: %d\n"
+                    "ToT: MSB: %d\tLSB: %d Total: %d (%d us)",
+                    id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, (tot_total * self.sampleclock_period_ns)/1000.0
+                )
+
+        return pd.DataFrame(hit_pd, columns=['id','payload','location', 'col', 'timestamp', 'tot_total'])
+
+    ###################################################################################################
+    ################################### Old decoding, to be removed ###################################
+    ###################################################################################################
+
+    def hits_from_readoutstream_old(self, readout: bytearray, reverse_bitorder: bool = True) -> list:
         """
         Extract Hits from Readout stream
 
@@ -124,7 +161,52 @@ class Decode:
 
         return list_hits
 
-    def decode_astropix2_hits(self, list_hits: list) -> list:
+    def find_idle_bytes_pos(self, readout: bytearray,
+            start_seq: bytearray = b'(\x3d{1,})[\0-\x0F]', #b'(\x3d*)',
+            idle_seq: bytearray = b'(\x3d{1,})[\0-\x0F]',
+            end_seq: bytearray = b'(\x3d{1,})') -> list:
+        """
+            Find idle Bytes
+
+        :param readout: Readout stream
+        :param start_seq: Start sequence regex
+        :param idle_seq: Idle sequence regex
+        :param end_seq: end sequence regex
+
+        :returns: Tuples with idle byte strings start and stop pos
+        """
+        matches = []
+
+        # Look for start seq
+        start = re.search(start_seq, readout)
+        if start is not None:
+            matches.append((start.start(), start.end() - 1))
+
+        # Find idle seqs and append to list
+        for index, match in enumerate(re.finditer(idle_seq, readout)):
+            match_start = match.start()
+            match_end = match.end() - 1
+
+            if len(matches) > 0:
+                match_start = matches[index][1] + math.ceil((match_start - matches[index][1]) / 5) * 5
+
+            matches.append((match_start, match_end))
+
+        # Look for stop seq
+        stop = re.search(end_seq, readout[(matches[-1][1]):])
+        if stop is not None:
+            matches.append((matches[-1][1]+stop.start(), matches[-1][1]+stop.end()))
+
+        # remove probably redundant first match
+        if len(matches) > 1:
+            if matches[0][1] == matches[1][1]:
+                del matches[1]
+
+        logger.info(f"Matches: {matches}")
+
+        return matches
+
+    def decode_astropix2_hits_old(self, list_hits: list) -> pd.DataFrame:
         """
         Decode 5byte Frames from AstroPix 2
 
@@ -140,30 +222,30 @@ class Decode:
 
         :param list_hists: List with all hits
 
-        :returns: List of decoded hits
+        :returns: Dataframe with decoded hits
         """
 
-        hit_array = []
+        hit_pd = pd.DataFrame(columns=['id','payload','location', 'col', 'timestamp', 'tot_total'])
 
         for hit in list_hits:
-            id          = int(hit[0]) >> 3
-            payload     = int(hit[0]) & 0b111
-            location    = int(hit[1])  & 0b111111
-            col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
-            timestamp   = int(hit[2])
-            tot_msb     = int(hit[3]) & 0b1111
-            tot_lsb     = int(hit[4])
-            tot_total   = (tot_msb << 8) + tot_lsb
+            if len(hit) == self.bytesperhit:
+                id          = int(hit[0]) >> 3
+                payload     = int(hit[0]) & 0b111
+                location    = int(hit[1])  & 0b111111
+                col         = 1 if (int(hit[1]) >> 7 ) & 1 else 0
+                timestamp   = int(hit[2])
+                tot_msb     = int(hit[3]) & 0b1111
+                tot_lsb     = int(hit[4])
+                tot_total   = (tot_msb << 8) + tot_lsb
 
-            wrong_id        = 0 if (id) == 0 else '\x1b[0;31;40m{}\x1b[0m'.format(id)
-            wrong_payload   = 4 if (payload) == 4 else'\x1b[0;31;40m{}\x1b[0m'.format(payload)
+                hit_pd = hit_pd.append({'id': id,'payload': payload,'location': location, 'col': col, 'timestamp': timestamp, 'tot_total': tot_total}, ignore_index=True)
 
-            hit_array.append([id,payload,location, col, timestamp, tot_total])
-            print(
-                f"Header: ChipId: {wrong_id}\tPayload: {wrong_payload}\t"
-                f"Location: {location}\tRow/Col: {'Col' if col else 'Row'}\t"
-                f"Timestamp: {timestamp}\t"
-                f"ToT: MSB: {tot_msb}\tLSB: {tot_lsb} Total: {tot_total} ({(tot_total * self.sampleclock_period_ns)/1000.0} us)"
-            )
+                logger.info(
+                    "Header: ChipId: %d\tPayload: %d\n"
+                    "Location: %d\tRow/Col: %d\n"
+                    "Timestamp: %d\n"
+                    "ToT: MSB: %d\tLSB: %d Total: %d (%d us)",
+                    id, payload, location, col, timestamp, tot_msb, tot_lsb, tot_total, (tot_total * self.sampleclock_period_ns)/1000.0
+                )
 
-        return hit_array
+        return hit_pd
