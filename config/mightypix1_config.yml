@@ -1,0 +1,110 @@
+# MightyPix1 config
+#
+# The following yaml should comply to the structure below.
+# It is important, that the order of configbits under the config section, corresponds to the actual order in the chip
+#
+# mightypix<version>:
+#   geometry:
+#       cols: <number of cols>
+#       rows: <number of rows>
+#   config:
+#       <group-name>:
+#           <configbit-name>: [<number of bits>, <value>]
+#   ...
+#
+---
+mightypix1:
+    geometry:
+        cols: 29
+        rows: 320
+    config:
+        digitalconfig:
+            inv_phase:          [1, 0b0]
+            ext_ck_640m:        [1, 0b0]
+            mux_ddr_ck:         [1, 0b0]
+            en_pll:             [1, 0b1]
+            mux_ts_ck:          [1, 0b0]
+            mux_dataoutc:       [1, 0b0]
+            lvds_tune0:         [1, 0b1]
+            lvds_tune1:         [1, 0b1]
+            lvds_tune2:         [1, 0b0]
+            lvds_tune3:         [1, 0b0]
+            write_ram0:         [1, 0b0]
+            write_ram1:         [1, 0b0]
+            write_ram2:         [1, 0b0]
+            write_ram3:         [1, 0b0]
+            dis_i2c2tfc:        [1, 0b0]
+            en_inj:             [1, 0b0]
+            pch:                [1, 0b0]
+            en_ramwr:           [1, 0b0]
+            extrabits:          [2, 0b0]
+        idacs:
+            q0:                 [2, 0]
+            qon:                [4, 0b101]
+            blres:              [6, 5]
+            vncompfine:         [6, 1]
+            vn:                 [6, 20]
+            vnfb:               [6, 5]
+            vnregc:             [6, 1]
+            vndel:              [6, 10]
+            vpbigfine:          [6, 20]
+            vpdac:              [6, 0]
+            vn2:                 [6, 0]
+            vnfoll2:            [6, 20]
+            vnfb2:              [6, 0]
+            vpload2:            [6, 0]
+            vpvco:              [6, 7]
+            vnvco:              [6, 15]
+            vpdeldclmux:        [6, 30]
+            vndeldclmux:        [6, 30]
+            vpdeldcl:           [6, 30]
+            vndeldcl:           [6, 30]
+            vpdelpreemp:        [6, 30]
+            vndelpreemp:        [6, 30]
+            vpdcl:              [6, 30]
+            vndcl:              [6, 30]
+            vnlvds:             [6, 10]
+            vnlvdsdel:          [6, 10]
+            vppump:             [6, 5]
+            vncpc:              [6, 5]
+            vnvcoc:             [6, 5]
+            vpregcasc:          [6, 0]
+            vpsmallfine:        [6, 20]
+            vncomp:             [6, 30]
+            vpfoll:             [6, 30]
+            vpbiasrec:          [6, 5]
+            vnbiasrec:          [6, 5]
+            vminuspix:          [10, 0]
+            thfine:             [10, 800]
+            blpix:              [10, 600]
+            thpix:              [10, 700]
+        recconfig:
+            col0:               [15, 0b_0000_1111_1111_1111]
+            col1:               [15, 0b_0000_1111_1111_1111]
+            col2:               [15, 0b_0000_1111_1111_1111]
+            col3:               [15, 0b_0000_1111_1111_1111]
+            col4:               [15, 0b_0000_1111_1111_1111]
+            col5:               [15, 0b_0000_1111_1111_1111]
+            col6:               [15, 0b_0000_1111_1111_1111]
+            col7:               [15, 0b_0000_1111_1111_1111]
+            col8:               [15, 0b_0000_1111_1111_1111]
+            col9:               [15, 0b_0000_1111_1111_1111]
+            col10:              [15, 0b_0000_1111_1111_1111]
+            col11:              [15, 0b_0000_1111_1111_1111]
+            col12:              [15, 0b_0000_1111_1111_1111]
+            col13:              [15, 0b_0000_1111_1111_1111]
+            col14:              [15, 0b_0000_1111_1111_1111]
+            col15:              [15, 0b_0000_1111_1111_1111]
+            col16:              [15, 0b_0000_1111_1111_1111]
+            col17:              [15, 0b_0000_1111_1111_1111]
+            col18:              [15, 0b_0000_1111_1111_1111]
+            col19:              [15, 0b_0000_1111_1111_1111]
+            col20:              [15, 0b_0000_1111_1111_1111]
+            col21:              [15, 0b_0000_1111_1111_1111]
+            col22:              [15, 0b_0000_1111_1111_1111]
+            col23:              [15, 0b_0000_1111_1111_1111]
+            col24:              [15, 0b_0000_1111_1111_1111]
+            col25:              [15, 0b_0000_1111_1111_1111]
+            col26:              [15, 0b_0000_1111_1111_1111]
+            col27:              [15, 0b_0000_1111_1111_1111]
+            col28:              [15, 0b_0000_1111_1111_1111]
